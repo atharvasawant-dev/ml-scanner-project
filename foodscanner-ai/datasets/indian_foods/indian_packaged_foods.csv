@@ -1,0 +1,314 @@
+product_name,brand,calories,fat,sugar,salt,protein,fiber,carbs
+Amul Butter,Amul,717,81,0.5,1.5,0.8,0,0.5
+Amul Cheese Slices,Amul,310,26,2,2,18,0,2
+Amul Ice Cream Vanilla,Amul,200,10,18,0.2,3,0,24
+Amul Kool Kesar,Amul,90,2,13,0.15,3,0,14
+Amul Lassi,Amul,80,1.5,12,0.15,2,0,14
+Amul Masti Dahi,Amul,90,4,5,0.1,3.5,0,6
+Amul Processed Cheese Block,Amul,330,27,3,2.1,20,0,2
+Amul Taaza Milk,Amul,62,3.5,5,0.1,3.2,0,4.8
+Amul Shrikhand Mango,Amul,220,8,28,0.1,5,0,32
+Amul Mithai Mate,Amul,330,8,52,0.2,8,0,54
+Amul Ghee,Amul,900,100,0,0.1,0.5,0,0
+Amul Dark Chocolate,Amul,545,35,42,0.1,6,8,50
+Amul Milk Chocolate,Amul,530,30,54,0.15,7,1,58
+Amul Kool Chocolate Milk,Amul,85,2,14,0.1,3,0,15
+Amul Paneer,Amul,280,22,1.5,0.8,18,0,2
+Amul Cream,Amul,350,35,3,0.1,2.5,0,4
+Amul Buttermilk,Amul,18,0.5,2,0.3,1,0,2.5
+Amul Pro Chocolate,Amul,380,8,22,0.3,20,5,55
+Balaji Wafers Masala,Balaji,514,25,2,0.87,7,3,63
+Balaji Wafers Cream Onion,Balaji,537,33,3.4,1.6,6.7,2,53
+Balaji Farali Chivda,Balaji Namkeen,589,38.9,8,1.01,15.2,7.6,8
+Balaji Aloo Bhujia,Balaji,570,38,4,2.8,10,5,45
+Balaji Peanut Butter Crunch,Balaji,545,28,6,1.2,12,4,58
+Balaji Sev Murmura,Balaji,507,23,0,2.02,10.9,5,60.6
+Britannia Bourbon,Britannia,490,22,32,0.7,6,2,64
+Britannia Good Day Butter,Britannia,520,26,28,0.7,6,2,62
+Britannia Little Hearts,Britannia,530,28,30,0.8,6,1.5,61
+Britannia Marie,Britannia,430,10,18,0.9,8,2,76
+Britannia NutriChoice Digestive,Britannia,450,14,18,0.9,8,7,68
+Britannia Tiger Krunch,Britannia,470,16,22,0.8,7,2.5,70
+Britannia 50-50,Britannia,475,18,10,1.1,7,2,67
+Britannia Treat Jim Jam,Britannia,483,19,33.5,0.535,5,1.5,73
+Britannia NutriChoice 5 Grain,Britannia,420,12,15,0.7,9,8,68
+Britannia Toastea,Britannia,380,8,6,1.2,10,4,70
+Britannia Milk Bikis,Britannia,467,17,23,0.8,8.5,5,65
+Britannia Pure Magic Chocolate,Britannia,495,24,32,0.6,6,2,64
+Britannia Good Day Chocochip,Britannia,515,25,30,0.6,6,2,64
+Britannia NutriChoice SugarOut,Britannia,410,14,8,0.8,9,8,62
+Cadbury Dairy Milk,Cadbury,530,30,56,0.2,7,1.5,58
+Cadbury Dairy Milk Silk,Cadbury,560,34,55,0.2,7,1.2,55
+Cadbury 5 Star,Cadbury,500,22,48,0.2,5,1,68
+Cadbury Bournville Dark,Cadbury,520,34,40,0.02,6,8,48
+Cadbury Gems,Cadbury,470,18,70,0.1,3,0,78
+Cadbury Perk,Cadbury,480,20,52,0.2,5,1,65
+Cadbury Celebrations,Cadbury,510,25,54,0.2,5,1.5,65
+Cadbury Eclairs,Cadbury,440,16,58,0.15,3,0,72
+Cadbury Shots,Cadbury,525,28,55,0.2,5,1,65
+Cadbury Oreo Original,Cadbury,480,20,38,0.9,5,2,71
+Cadbury Oreo Chocolate,Cadbury,485,22,40,0.9,5,2,70
+Cadbury Bytes,Cadbury,490,24,28,0.8,6,2,62
+Coca-Cola,Coca-Cola,42,0,10.6,0.02,0,0,10.6
+Fanta Orange,Coca-Cola,45,0,11.5,0.03,0,0,11.5
+Sprite,Coca-Cola,40,0,10,0.02,0,0,10
+Thums Up,Coca-Cola,44,0,11,0.03,0,0,11
+Limca,Coca-Cola,40,0,9.8,0.03,0,0,9.8
+Maaza Mango,Coca-Cola,60,0,14,0.05,0,0.2,15
+Minute Maid Pulpy Orange,Coca-Cola,50,0,11,0.05,0.3,0.2,12
+Kinley Soda,Coca-Cola,0,0,0,0.05,0,0,0
+Appy Fizz,Coca-Cola,55,0,13,0.04,0,0,13
+Dabur Real Mango Juice,Dabur,60,0,14,0.05,0.3,0.2,14
+Dabur Real Mixed Fruit,Dabur,55,0,12,0.05,0.2,0.2,13
+Dabur Real Orange Juice,Dabur,50,0,11,0.05,0.3,0.2,12
+Dabur Glucose-D,Dabur,350,0,85,0.3,0,0,88
+Dabur Hajmola,Dabur,380,2,60,2.5,2,0.5,88
+Dabur Chyawanprash,Dabur,280,5,45,0.2,3,1,55
+Dabur Honey,Dabur,304,0,80,0.02,0.3,0,82
+Haldiram Aloo Bhujia,Haldiram,570,40,4,2.9,10,5,44
+Haldiram Bhujia,Haldiram,560,38,4,2.8,10,5,45
+Haldiram Khatta Meetha,Haldiram,520,28,8,2.1,8,4,62
+Haldiram Moong Dal,Haldiram,550,35,3,2.2,24,8,40
+Haldiram Punjabi Tadka,Haldiram,530,30,6,2,9,4,58
+Haldiram Sev Bhujia,Haldiram,560,38,4,2.7,10,5,45
+Haldiram Cornitos Nacho Chips,Haldiram,480,22,2,1.5,7,4,62
+Haldiram Namkeen Mix,Haldiram,540,32,5,2.3,9,4,55
+Haldiram Peanuts Masala,Haldiram,580,38,3,1.8,22,6,32
+Haldiram Chana Dal,Haldiram,520,28,2,1.5,20,8,45
+Haldiram Soan Papdi,Haldiram,430,18,40,0.3,6,1,62
+Haldiram Rasgulla,Haldiram,180,3,28,0.1,4,0,35
+Haldiram Gulab Jamun,Haldiram,280,10,38,0.2,5,0,42
+Haldiram Rosogolla,Haldiram,190,3,29,0.1,4,0,36
+Kellogg's Corn Flakes,Kellogg's,370,1,8,1.2,8,3,84
+Kellogg's Chocos,Kellogg's,420,9,30,0.8,7,5,78
+Kellogg's Muesli Fruit Nut,Kellogg's,400,10,18,0.2,9,8,72
+Kellogg's Oats,Kellogg's,380,7,1,0.05,13,10,68
+Kellogg's Honey Loops,Kellogg's,390,3,28,0.7,7,4,82
+Kellogg's Froot Loops,Kellogg's,380,4,34,0.6,5,3,84
+Kellogg's All Bran,Kellogg's,270,3,18,1.2,11,27,46
+Kellogg's Special K,Kellogg's,370,1.5,15,1.1,14,2,72
+Kellogg's Granola,Kellogg's,450,15,22,0.3,9,5,68
+Kellogg's Crunchy Muesli,Kellogg's,420,12,20,0.3,9,6,66
+Kurkure Masala Munch,PepsiCo,540,34,5,1.8,6,3,52
+Kurkure Chilli Chatka,PepsiCo,545,35,5,1.9,6,3,51
+Kurkure Solid Masti,PepsiCo,550,36,5,2,6,3,50
+Kurkure Puffcorn Cheese,PepsiCo,535,28,5,1.5,6,2,60
+Kurkure Triangles,PepsiCo,530,30,4,1.7,6,3,56
+Lay's Magic Masala,PepsiCo,545,35,2,1.3,6,4,52
+Lay's Classic Salted,PepsiCo,540,34,1,1.2,6,4,53
+Lay's Chile Limon,PepsiCo,540,34,2,1.2,6,4,53
+Lay's Spanish Tomato Tango,PepsiCo,538,33,3,1.3,6,4,53
+Uncle Chipps Spicy,PepsiCo,535,33,2,1.1,6,4,54
+Bingo Mad Angles,ITC,525,31,6,1.8,7,2.5,55
+Bingo Tedhe Medhe,ITC,520,30,5,1.7,7,2.5,56
+Bingo Yumitos,ITC,535,33,2,1.2,6,4,53
+Sunfeast Yippee Magic Masala,ITC,430,15,4,3.5,9,2,65
+Sunfeast Yippee Atta Noodles,ITC,380,8,3,2.8,11,4,65
+Sunfeast Dark Fantasy,ITC,507,27,35.7,0.45,7.3,2,61
+Sunfeast Farmlite Digestive,ITC,450,14,14,0.7,8,8,66
+Sunfeast Marie Light,ITC,395,8,16,0.8,8,3,74
+Sunfeast Mom's Magic,ITC,500,22,28,0.7,6,2,65
+Sunfeast Bounce,ITC,475,20,30,0.6,5,2,67
+Maggi Masala Noodles,Nestle,430,15,4,3.5,9,2,65
+Maggi Atta Noodles,Nestle,410,14,4,3.3,10,3,62
+Maggi Oats Noodles,Nestle,350,6,3,2.8,12,5,62
+Maggi 2 Minute Noodles,Nestle,440,17,5,3.8,9,2,63
+Maggi Chicken Noodles,Nestle,440,17,5,3.8,9,2,63
+Nestle Munch,Nestle,520,28,45,0.3,6,1,64
+Nestle KitKat,Nestle,515,27,47,0.2,6,1,61
+Nestle Milkybar,Nestle,540,30,55,0.2,6,0,60
+Nestle Eclairs,Nestle,440,15,58,0.15,3,0,72
+Nestle Polo Mint,Nestle,390,0,80,0.1,0,0,97
+Nestle Smarties,Nestle,470,18,68,0.1,3,0,76
+Nestle Bar One,Nestle,465,19,50,0.2,5,1,66
+Nestle Milkmaid,Nestle,330,8,52,0.2,8,0,54
+Parle-G Biscuits,Parle,450,13,22,0.6,7,1.5,72
+Parle Monaco,Parle,480,20,10,1,7,2,66
+Parle Krackjack,Parle,470,18,20,0.7,7,2,67
+Parle Hide and Seek,Parle,510,24,30,0.6,6,2,63
+Parle 20-20 Cookies,Parle,480,20,24,0.6,6,1.8,66
+Parle Marie Gold,Parle,430,10,18,0.8,8,2,76
+Parle Magix Cream,Parle,490,22,30,0.7,5,2,64
+Parle Melody,Parle,440,16,58,0.15,3,0,72
+Parle Mango Bite,Parle,380,1,80,0.05,0,0,92
+Parle Kachha Aam,Parle,365,0,82,0.05,0,0,94
+Parle Kismi Toffee,Parle,390,5,72,0.1,2,0,85
+Red Bull Energy Drink,Red Bull,45,0,11,0.1,0,0,11
+Red Bull Sugar Free,Red Bull,8,0,0,0.1,0,0,3
+Thums Up Charged,Coca-Cola,52,0,12.5,0.03,0,0,12.5
+Mountain Dew,PepsiCo,47,0,11.6,0.04,0,0,11.6
+Pepsi,PepsiCo,44,0,11,0.03,0,0,11
+7Up,PepsiCo,41,0,10,0.02,0,0,10
+Mirinda Orange,PepsiCo,48,0,12,0.03,0,0,12
+Slice Mango,PepsiCo,65,0,15,0.05,0,0.2,16
+Tropicana Orange,PepsiCo,45,0,10,0.05,0.5,0.2,11
+Tropicana Mixed Fruit,PepsiCo,42,0,9.5,0.05,0.3,0.2,10
+Frooti Mango,Parle Agro,58,0,13.5,0.04,0.1,0,14
+Appy Apple,Parle Agro,50,0,12,0.04,0,0,12
+Bailey's Packaged Water,Parle Agro,0,0,0,0,0,0,0
+Minute Maid Nimbu Fresh,Coca-Cola,35,0,8,0.04,0,0,8.5
+Paper Boat Aam Panna,Hector Beverages,60,0,14,0.1,0,0.2,15
+Paper Boat Jaljeera,Hector Beverages,40,0,8,0.5,0.5,0,9
+Paper Boat Rose Sharbat,Hector Beverages,65,0,16,0.05,0,0,16
+Bisleri Mineral Water,Bisleri,0,0,0,0,0,0,0
+Kinley Water,Coca-Cola,0,0,0,0,0,0,0
+Quaker Oats,PepsiCo,375,7,1,0.05,13,10,67
+Quaker Oats Masala,PepsiCo,360,6,2,0.8,12,9,65
+Saffola Oats,Marico,375,7,1,0.05,13,10,67
+Saffola Masala Oats,Marico,365,6,2,0.6,12,9,65
+Saffola Gold Oil,Marico,900,100,0,0,0,0,0
+Saffola Honey,Marico,304,0,78,0.02,0.3,0,80
+Tata Salt,Tata,0,0,0,100,0,0,0
+Tata Sampann Masala Oats,Tata,390,8,4,1.2,11,10,66
+Tata Tea Gold,Tata,2,0,0,0.01,0.3,0,0.2
+Tata Tea Premium,Tata,2,0,0,0.01,0.3,0,0.2
+Tata Gluco Plus,Tata,350,0,82,0.3,0,0,86
+Tata Soulfull Millet Muesli,Tata,390,8,12,0.2,10,8,68
+Tata Soulfull Ragi Bites,Tata,400,10,15,0.4,9,6,66
+Tata Nutrikorner,Tata,380,7,10,0.3,11,9,64
+Boost Chocolate Drink,GSK,380,8,48,0.5,8,3,70
+Horlicks Original,GSK,375,7,30,0.4,12,2,68
+Horlicks Lite,GSK,340,5,20,0.3,14,3,62
+Complan Chocolate,Heinz,400,10,42,0.5,18,2,60
+Bournvita Chocolate,Cadbury,380,7,52,0.5,8,3,70
+Bournvita 5 Star Magic,Cadbury,385,8,54,0.5,7,3,72
+Milo,Nestle,360,6,44,0.5,9,5,68
+Top Ramen Masala Noodles,Nissin,430,16,3,3.2,9,2,63
+Top Ramen Chicken,Nissin,435,16,3,3.3,9,2,64
+Wai Wai Noodles,CG Foods,480,20,4,3.5,8,2,66
+Patanjali Oats,Patanjali,380,7,1,0.1,13,10,68
+Patanjali Doodh Biscuit,Patanjali,468,17,24,0.87,7.2,6,72
+Patanjali Digestive Biscuit,Patanjali,445,14,16,0.8,8,7,68
+Patanjali Ghee,Patanjali,900,100,0,0.1,0.5,0,0
+Patanjali Honey,Patanjali,300,0,75,0.02,0.3,0,78
+Patanjali Chyawanprash,Patanjali,275,5,42,0.2,3,1,54
+Patanjali Atta Noodles,Patanjali,390,9,3,2.8,11,4,65
+Cornitos Nachos Sea Salt,Cornitos,480,22,1,1.2,7,5,62
+Cornitos Nachos Cheese,Cornitos,490,24,2,1.5,7,4,60
+Cornitos Nachos Jalapeno,Cornitos,485,23,2,1.4,7,4,61
+Too Yumm Multigrain,Bector Foods,380,10,3,1.2,8,6,65
+Too Yumm Veggie Sticks,Bector Foods,370,9,3,1.1,8,7,64
+Too Yumm Rice Pops,Bector Foods,360,8,4,1,8,6,66
+Yellow Diamond Chips,Vimal Agro,535,32,2,1.3,6,4,54
+Yellow Diamond Rings,Vimal Agro,520,28,3,1.4,6,3,57
+Act II Popcorn Butter,ADF Foods,450,20,4,1.2,7,5,60
+Act II Popcorn Cheese,ADF Foods,455,21,4,1.3,7,5,59
+ITC Dark Fantasy Choco Fills,ITC,520,25,35,0.6,6,2,62
+ITC Sunfeast Bounce Strawberry,ITC,475,20,30,0.6,5,2,67
+Parle Platina Hide Seek,Parle,515,25,31,0.6,6,2,62
+Parle Cheeselings,Parle,520,28,5,1.8,8,2,56
+Good Day Pista Almond,Britannia,530,28,26,0.7,7,2,60
+Britannia Cookies Chocolate,Britannia,510,25,34,0.6,6,2,62
+Chips Ahoy Chocolate,Cadbury,490,22,32,0.7,5,2,66
+Oreo Thins,Cadbury,470,20,36,0.8,4,2,68
+Bourbon Nut,Britannia,480,20,30,0.7,6,2,65
+Lotte Choco Pie,Lotte,433,17,37,0.63,4,1,66
+Lotte Pepero Chocolate,Lotte,450,18,40,0.5,5,2,64
+KitKat Chunky,Nestle,525,28,50,0.2,6,1,60
+Toblerone,Mondelez,530,28,48,0.1,6,2,60
+Ferrero Rocher,Ferrero,590,39,40,0.2,7,2,46
+Snickers,Mars,490,22,47,0.3,7,1,60
+Mars Bar,Mars,450,18,45,0.25,4,1,65
+Twix,Mars,495,24,40,0.3,4,1,63
+Bounty,Mars,470,23,38,0.15,4,2,58
+M&M Chocolate,Mars,480,20,60,0.1,4,1,67
+Dairy Milk Silk Oreo,Cadbury,545,30,54,0.2,6,2,58
+Perk Chatpat,Cadbury,470,18,48,0.25,5,1,67
+Munch Rollick,Nestle,505,26,44,0.3,6,1,62
+Éclairs Crunch,Cadbury,440,15,58,0.15,3,0.5,73
+Unibic Oatmeal Cookies,Unibic,445,16,24,0.7,7,5,65
+Unibic Choco Chip Cookies,Unibic,490,22,32,0.6,6,3,64
+Unibic Butter Cookies,Unibic,500,24,26,0.7,6,2,64
+Mrs Bectors Cremica Butter,Mrs Bectors,510,25,28,0.7,5,2,63
+McVitie's Digestive,United Biscuits,460,16,15,0.9,8,6,68
+McVitie's Hobnobs,United Biscuits,450,18,22,0.8,7,6,64
+Priyagold Butter Bite,Priyagold,480,20,26,0.7,6,2,66
+Priyagold Chess Biscuit,Priyagold,490,22,18,1,7,2,64
+Cremica Coconut Cookies,Cremica,510,24,28,0.7,5,2,63
+Anmol Glucose Biscuit,Anmol,435,12,20,0.8,7,2,73
+Anmol Butter Biscuit,Anmol,475,18,24,0.8,6,2,67
+Dukes Wafer Vanilla,Dukes,495,24,30,0.6,5,2,64
+Dukes Bourbon,Dukes,480,20,30,0.7,5,2,66
+Dukes Wafer Chocolate,Dukes,490,24,32,0.6,5,2,63
+Gyan Shakti Dry Fruits Biscuit,Gyan Shakti,485,20,28,0.7,7,3,63
+Pran Digestive Biscuit,Pran,445,14,16,0.8,8,7,67
+Nankhatai Biscuit,Local Brand,480,22,26,0.7,6,1.5,64
+Glucose Biscuit Generic,Generic,420,10,22,0.8,7,2,73
+Jeera Biscuit Generic,Generic,470,18,10,1.1,7,2,68
+Chocolate Chip Cookie Generic,Generic,500,24,32,0.6,5,2,63
+Oatmeal Raisin Cookie,Generic,460,16,28,0.6,6,4,66
+Multigrain Cracker,Generic,410,12,6,1.2,8,6,68
+Rice Cake Plain,Generic,380,2,2,0.3,8,2,80
+Corn Puffs Cheese,Generic,490,23,4,1.5,7,3,60
+Soya Snack Masala,Generic,510,26,4,1.6,18,5,50
+Peanut Butter Smooth,Sundrop,595,49,8,0.8,26,6,18
+Peanut Butter Crunchy,Sundrop,590,48,7,0.8,27,7,17
+Veeba Peanut Butter,Veeba,590,48,6,0.5,26,6,18
+Alpino Peanut Butter,Alpino,585,46,6,0.5,28,7,18
+Funfoods Peanut Butter,Dr Oetker,580,46,8,0.8,24,6,20
+Nutella,Ferrero,540,31,57,0.1,6,3,58
+Hershey's Chocolate Syrup,Hershey's,280,1,52,0.2,2,1,68
+Kissan Mixed Fruit Jam,HUL,280,0,60,0.05,0.5,1,70
+Kissan Orange Marmalade,HUL,250,0,58,0.1,0.3,1,65
+Maggi Ketchup,Nestle,100,0.5,20,2.5,1.5,1.5,22
+Kissan Tomato Ketchup,HUL,95,0.3,18,2.8,1.5,1.5,21
+Heinz Tomato Ketchup,Heinz,100,0,21,2.2,1.2,1.5,22
+Del Monte Tomato Ketchup,Del Monte,95,0,19,2.5,1.5,1.5,21
+Smith Jones Cheese Dip,Smith Jones,280,22,4,2.2,8,1,14
+Wingreens Hummus,Wingreens Farms,180,12,2,0.8,6,4,12
+Wingreens Nachos Salsa,Wingreens Farms,40,0,6,1.2,1,1,9
+Britannia Winkin Cow Chocolate,Britannia,85,2,12,0.15,3,0,15
+Nestle NesPlus Oats,Nestle,375,8,8,0.3,12,8,65
+Corn Flakes with Honey,Kellogg's,385,2,16,0.9,8,3,82
+Muesli with Almonds,Kellogg's,410,12,18,0.2,10,7,66
+Chocos Duet,Kellogg's,420,9,30,0.7,7,5,78
+Froot Loops,Kellogg's,385,4,34,0.6,5,3,84
+Choco Fills,Kellogg's,400,8,28,0.6,7,4,76
+Rice Krispies,Kellogg's,365,1,8,1.2,7,1,84
+Saffola Masala Oats Peppy Tomato,Marico,365,6,2.5,0.7,11,9,65
+Saffola Masala Oats Classic Masala,Marico,368,7,2,0.8,11,8,65
+Nescafe Classic,Nestle,2,0,0,0.01,0.3,0,0.3
+Nescafe Gold,Nestle,2,0,0,0.01,0.3,0,0.3
+Bru Instant Coffee,HUL,2,0,0,0.01,0.3,0,0.3
+Sunrise Premium Coffee,HUL,2,0,0,0.01,0.3,0,0.3
+Lipton Yellow Label Tea,HUL,2,0,0,0.01,0.3,0,0.2
+Twinings Green Tea,Twinings,1,0,0,0.01,0.2,0,0.2
+Tetley Green Tea,Tetley,1,0,0,0.01,0.2,0,0.2
+Taj Mahal Tea,HUL,2,0,0,0.01,0.3,0,0.2
+Red Label Tea,HUL,2,0,0,0.01,0.3,0,0.2
+Wagh Bakri Premium Tea,Wagh Bakri,2,0,0,0.01,0.3,0,0.2
+Madras Tea,Local,2,0,0,0.01,0.3,0,0.2
+Society Masala Tea,Society,5,0,0.5,0.05,0.3,0,0.8
+Nescafe 3 in 1,Nestle,80,2.5,12,0.2,1.5,0,14
+Bournvita Biscotti,Cadbury,460,15,30,0.6,7,4,68
+Britannia Vita Mariegold,Britannia,440,11,19,0.8,8,2,76
+Real Guava Juice,Dabur,45,0,10,0.05,0.2,0.5,11
+Real Apple Juice,Dabur,50,0,12,0.05,0.1,0.2,12
+Real Litchi Juice,Dabur,55,0,13,0.05,0.1,0.2,14
+Paper Boat Aam Ras,Hector Beverages,65,0,15,0.05,0.2,0.5,16
+Frooti Litchi,Parle Agro,55,0,13,0.04,0.1,0,13
+Glucon-D Nimbu Pani,Heinz,375,0,90,0.5,0,0,93
+Electral Lemon Flavor,FDC,0,0,0,0.5,0,0,6
+ORS Electrolyte Drink,Generic,25,0,6,0.6,0,0,6.5
+Gatorade Blue Bolt,PepsiCo,25,0,6,0.45,0,0,6.5
+Powerade Mountain Blast,Coca-Cola,27,0,6.5,0.4,0,0,7
+Monster Energy,Monster,45,0,11,0.2,0,0,11
+Sting Energy Drink,PepsiCo,55,0,13,0.15,0,0,13
+Maa Shrikhand Kesar,Gujarat,220,8,26,0.1,5,0,32
+Ananda Lassi Sweet,Ananda,80,1.5,12,0.1,2,0,14
+Mother Dairy Mishti Doi,Mother Dairy,180,4,22,0.1,5,0,28
+Mother Dairy Yogurt,Mother Dairy,70,3,6,0.1,4,0,8
+Mother Dairy Paneer,Mother Dairy,280,22,1.5,0.8,18,0,2
+Mother Dairy Flavored Milk,Mother Dairy,80,2,12,0.1,3,0,13
+Nestle a Plus Milk,Nestle,62,3.5,5,0.1,3.2,0,4.8
+Complan Vanilla,Heinz,390,8,38,0.5,18,2,62
+Cadbury Bournvita Little Champs,Cadbury,370,6,48,0.5,7,3,68
+Horlicks Growth Plus,GSK,380,7,32,0.4,13,2,65
+Pediasure Chocolate,Abbott,110,4.4,12,0.15,3.5,1,14
+Junior Horlicks Stage 1,GSK,370,8,28,0.4,14,2,62
+Ensure Chocolate,Abbott,240,8,16,0.3,9,3,33
+Protinex Original,Danone,360,2,10,0.5,60,0,30
+Protinex Chocolate,Danone,365,3,20,0.5,55,0,35
+MuscleBlaze Whey Protein,MuscleBlaze,400,4,4,0.4,80,1,10
+Optimum Nutrition Gold Whey,ON,400,4,3,0.4,82,1,8
+MyProtein Impact Whey,MyProtein,390,4,3,0.4,80,1,9

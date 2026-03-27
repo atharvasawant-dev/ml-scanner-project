@@ -1,0 +1,11 @@
+node_modules/
+.expo/
+.vscode/
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+.env
+.DS_Store
+Thumbs.db

@@ -1,0 +1,27 @@
+fastapi
+numpy
+pandas
+psycopg2-binary
+python-jose[cryptography]
+python-dotenv
+passlib[bcrypt]
+sqlalchemy
+rapidfuzz
+requests
+opencv-python
+pyzbar
+scikit-learn
+tqdm
+uvicorn
+pytesseract
+pillow
+easyocr
+
+# This file is generated from pyproject.toml
+#
+# Regenerate with (choose one):
+#   pip install -U pip-tools
+#   pip-compile --resolver=backtracking -o requirements.txt pyproject.toml
+#
+# Or (if using uv):
+#   uv pip compile pyproject.toml -o requirements.txt

@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Testing / tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Env
+.env
+
+# Database files
+*.db
+database.zip
+
+# ML model and data files
+ml_model/model.pkl
+datasets/off_india_raw.json
+
+# OS
+.DS_Store
+Thumbs.db
