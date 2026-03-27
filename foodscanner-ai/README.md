@@ -68,3 +68,27 @@ SECRET_KEY=your-secret-key
 ```
 
 Do not commit `.env`.
+
+## Simple Public Deployment
+
+If you want the mobile APK to work for other people, the backend must be hosted on a public URL.
+
+This repo now includes:
+
+- `.env.example` for required environment variables
+- `render.yaml` at the repo root for a simple Render deployment
+
+Recommended start command:
+
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port $PORT
+```
+
+After deployment, open:
+
+```text
+https://your-backend-url/health
+https://your-backend-url/docs
+```
+
+If both work, use that backend URL in the mobile app's `EXPO_PUBLIC_API_BASE_URL`.

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import * as ImagePicker from 'expo-image-picker';
 
 import { scanNutritionLabel } from '../services/api';
-import { getToken } from '../utils/storage';
+import { logFoodEntry } from '../services/foodLog';
 
 const C = {
   cream: '#F5F2EC',
@@ -57,20 +57,10 @@ export default function OCRScanScreen({ navigation, route }) {
 
       if (res?.calories) {
         try {
-          const token = await getToken();
-          if (token) {
-            await fetch(`http://192.168.29.149:8000/food-log`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                product_name: res.product_name || 'OCR Scanned Product',
-                calories: parseFloat(res.calories) || 0,
-              }),
-            }).catch(() => {});
-          }
+          await logFoodEntry(
+            res.product_name || 'OCR Scanned Product',
+            parseFloat(res.calories) || 0
+          ).catch(() => {});
         } catch (e) {
           // ignore
         }

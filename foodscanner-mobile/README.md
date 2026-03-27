@@ -1,50 +1,60 @@
-# Welcome to your Expo app 👋
+# FoodScanner Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo React Native app for barcode scanning, OCR nutrition-label scanning, food analysis, and daily tracking.
 
-## Get started
+## What You Need For A Shareable APK
 
-1. Install dependencies
+For an APK that other people can use:
 
-   ```bash
-   npm install
-   ```
+1. Deploy the backend to a public URL.
+2. Set `EXPO_PUBLIC_API_BASE_URL` to that public backend URL.
+3. Build the Android APK with EAS Build.
+4. Install the APK on a real phone and test login, scan, OCR, and reports.
 
-2. Start the app
+GitHub is useful for backup and deployment, but it is not enough by itself. If the app still points to a local IP address, the APK will not work for other people.
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Local Setup
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Create `.env` in this folder:
 
-## Learn more
+```bash
+EXPO_PUBLIC_API_BASE_URL=https://your-public-backend-url.onrender.com
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Start the app:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npx expo start
+```
 
-## Join the community
+## Build An APK Without Android Studio
 
-Join our community of developers creating universal apps.
+Log in to Expo:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npx expo login
+```
+
+Create or link the EAS project:
+
+```bash
+npx eas init
+```
+
+Build the APK:
+
+```bash
+npm run build:apk
+```
+
+This uses the `preview` profile in `eas.json`, which generates an installable Android APK.
+
+## Important Notes
+
+- `EXPO_PUBLIC_API_BASE_URL` must be a public backend URL, not `localhost` and not your home Wi-Fi IP.
+- The backend should allow traffic from the app and keep required files like the database and ML model available on the server.
+- Ignored files like local databases, generated model files, and Expo generated typings usually do not need to go to GitHub unless your deployment strategy specifically depends on them.

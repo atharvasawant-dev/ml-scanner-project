@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: foodscanner-ai
+    env: python
+    rootDir: foodscanner-ai
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///database/foodscanner.db

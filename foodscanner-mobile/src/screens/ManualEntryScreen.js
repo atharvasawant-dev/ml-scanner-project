@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 
 import { analyzeManualProduct } from '../services/api';
-import { getToken } from '../utils/storage';
+import { logFoodEntry } from '../services/foodLog';
 
 const C = {
   cream: '#F5F2EC',
@@ -119,18 +119,10 @@ export default function ManualEntryScreen({ navigation, route }) {
       };
 
       try {
-        const token = await getToken();
-        await fetch(`http://192.168.29.149:8000/food-log`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            product_name: productName || 'Manual Entry',
-            calories: parseFloat(result?.product?.nutrition?.calories || calories) || 0,
-          }),
-        }).catch(() => {});
+        await logFoodEntry(
+          productName || 'Manual Entry',
+          parseFloat(result?.product?.nutrition?.calories || calories) || 0
+        ).catch(() => {});
       } catch (e) {
         // ignore
       }

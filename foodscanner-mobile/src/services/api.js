@@ -3,8 +3,16 @@ import { Platform } from 'react-native';
 import { getToken, removeToken } from '../utils/storage';
 import { resetToLogin } from '../utils/navigationRef';
 
-// IMPORTANT: Use your machine's local IP (same WiFi as phone). Example: http://192.168.1.10:8000
-const BASE_URL = Platform.OS === 'web' ? 'http://localhost:8000' : 'http://192.168.29.149:8000';
+const DEFAULT_WEB_URL = 'http://localhost:8000';
+const DEFAULT_NATIVE_URL = 'http://10.0.2.2:8000';
+
+function normalizeBaseUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  return url.trim().replace(/\/+$/, '');
+}
+
+const envBaseUrl = normalizeBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
+export const BASE_URL = envBaseUrl || (Platform.OS === 'web' ? DEFAULT_WEB_URL : DEFAULT_NATIVE_URL);
 
 const client = axios.create({
   baseURL: BASE_URL,
