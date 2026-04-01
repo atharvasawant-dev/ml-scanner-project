@@ -33,6 +33,7 @@ database.zip
 
 # ML model and data files
 ml_model/model.pkl
+ml_model/*.pkl
 datasets/off_india_raw.json
 
 # OS

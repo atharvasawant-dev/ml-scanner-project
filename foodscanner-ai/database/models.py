@@ -82,6 +82,12 @@ class FoodLog(Base):
     barcode: Mapped[str] = mapped_column(String, nullable=False)
     product_name: Mapped[str] = mapped_column(String, nullable=False)
     calories: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sugar: Mapped[float | None] = mapped_column(Float, nullable=True)
+    salt: Mapped[float | None] = mapped_column(Float, nullable=True)
+    protein: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fiber: Mapped[float | None] = mapped_column(Float, nullable=True)
+    carbs: Mapped[float | None] = mapped_column(Float, nullable=True)
     consumed_at: Mapped[str] = mapped_column(String, nullable=False)
 
     user: Mapped[User] = relationship("User", back_populates="food_logs")

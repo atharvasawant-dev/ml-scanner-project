@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import joblib
@@ -189,4 +190,17 @@ def train_model(model_path: Path = MODEL_PATH) -> None:
 
 
 if __name__ == "__main__":
-    train_model()
+    parser = argparse.ArgumentParser(description="Train NutriScore model")
+    parser.add_argument(
+        "--advanced",
+        action="store_true",
+        help="Train advanced ensemble models using large OpenFoodFacts dataset (backward compatible)",
+    )
+    args = parser.parse_args()
+
+    if args.advanced:
+        from .advanced_training import train_advanced_models
+
+        train_advanced_models()
+    else:
+        train_model()

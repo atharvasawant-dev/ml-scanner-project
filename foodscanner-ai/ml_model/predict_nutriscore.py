@@ -8,15 +8,19 @@ import joblib
 import numpy as np
 
 
-MODEL_PATH = Path(__file__).resolve().parent / "model.pkl"
+MODEL_PATH = Path(__file__).resolve().parent / "ensemble_model.pkl"
+LEGACY_MODEL_PATH = Path(__file__).resolve().parent / "model.pkl"
 
 
 @lru_cache(maxsize=1)
 def _load_bundle(model_path: Path = MODEL_PATH) -> dict[str, Any]:
     if not model_path.exists():
-        raise FileNotFoundError(
-            f"Model not found at: {model_path}. Train it first by running ml_model/train_model.py"
-        )
+        if model_path == MODEL_PATH and LEGACY_MODEL_PATH.exists():
+            model_path = LEGACY_MODEL_PATH
+        else:
+            raise FileNotFoundError(
+                f"Model not found at: {model_path}. Train it first by running ml_model/train_model.py"
+            )
     bundle = joblib.load(model_path)
     if not isinstance(bundle, dict) or "model" not in bundle or "features" not in bundle:
         raise ValueError("Invalid model bundle")

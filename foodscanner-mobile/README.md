@@ -53,6 +53,17 @@ npm run build:apk
 
 This uses the `preview` profile in `eas.json`, which generates an installable Android APK.
 
+## Build A Website Link
+
+Create `.env` with your public backend URL and then run:
+
+```bash
+npm install
+npm run build:web
+```
+
+This creates a static web build that can be deployed to a simple frontend host.
+
 ## Important Notes
 
 - `EXPO_PUBLIC_API_BASE_URL` must be a public backend URL, not `localhost` and not your home Wi-Fi IP.

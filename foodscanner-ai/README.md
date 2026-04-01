@@ -67,6 +67,15 @@ DATABASE_URL=sqlite:///database/foodscanner.db
 SECRET_KEY=your-secret-key
 ```
 
+To use PostgreSQL instead of SQLite, set:
+
+```text
+DATABASE_URL=postgresql+psycopg2://postgres:your_password@localhost:5432/foodscanner_ai
+SECRET_KEY=your-secret-key
+```
+
+Use a separate database name like `foodscanner_ai` so it does not interfere with your other project on the same PostgreSQL server.
+
 Do not commit `.env`.
 
 ## Simple Public Deployment

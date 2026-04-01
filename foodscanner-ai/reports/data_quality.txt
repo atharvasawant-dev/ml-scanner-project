@@ -1,0 +1,26 @@
+DATA QUALITY REPORT
+===================
+
+Input file: C:\Users\SHIVAM SAWANT\CascadeProjects\ml-scanner-project\foodscanner-ai\datasets\large_openfoodfacts.csv
+Output file: C:\Users\SHIVAM SAWANT\CascadeProjects\ml-scanner-project\foodscanner-ai\datasets\large_openfoodfacts_cleaned.csv
+
+Original rows: 37527
+Final rows: 37444
+Dropped rows: 83
+
+Filters applied:
+- removed rows missing calories/sugar/salt
+- removed outliers calories>1000 or sugar>100
+- filled missing saturated_fat=0, fiber=0
+- removed duplicates by (code, product_name)
+
+NutriScore class distribution (nutriscore_grade):
+- a: 4086
+- b: 3944
+- c: 7405
+- d: 6376
+- e: 11677
+- not-applicable: 417
+- unknown: 3539
+
+Missing calories in raw file (approx): 0

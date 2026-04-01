@@ -34,7 +34,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def _get_secret_key() -> str:
     secret = os.environ.get("SECRET_KEY")
     if not secret:
-        raise RuntimeError("SECRET_KEY is not set")
+        allow_insecure = str(os.environ.get("ALLOW_INSECURE_DEV_AUTH") or "").strip().lower() in {"1", "true", "yes"}
+        if allow_insecure:
+            return "dev-insecure-secret-key"
+        raise HTTPException(
+            status_code=500,
+            detail="Server misconfigured: SECRET_KEY is not set. Create foodscanner-ai/.env (see .env.example).",
+        )
     return secret
 
 

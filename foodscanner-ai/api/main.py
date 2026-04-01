@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 import base64
-import re
 import io
+import json
 import logging
-
+import hashlib
+import os
+import random
+import re
+import time
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, Field
@@ -74,6 +78,13 @@ class OCRRequest(BaseModel):
 class FoodLogRequest(BaseModel):
     product_name: str
     calories: float = 0
+    fat: float | None = None
+    sugar: float | None = None
+    salt: float | None = None
+    protein: float | None = None
+    fiber: float | None = None
+    carbs: float | None = None
+    serving_size: float | None = None
 
 
 class RegisterRequest(BaseModel):
@@ -185,8 +196,10 @@ def _ocr_extract_text(image_bytes: bytes) -> str:
         import numpy as np
         from PIL import Image
 
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        arr = np.array(img)
+        arr = _preprocess_ocr_image(image_bytes)
+        if arr is None:
+            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            arr = np.array(img)
 
         reader = _get_easyocr_reader()
         parts = reader.readtext(arr, detail=0)
@@ -242,125 +255,140 @@ def _ocr_extract_text(image_bytes: bytes) -> str:
 
 
 def _parse_nutrition_from_text(text: str) -> dict:
+    """Parse nutrition values from noisy OCR text with conservative, nutrient-specific heuristics."""
     text_lower = (text or "").lower()
-    # Keep newlines for label-style parsing; also keep a flattened version.
-    text_lines = [ln.strip() for ln in re.split(r"\r?\n", text_lower) if ln.strip()]
-    flat = re.sub(r"\s+", " ", text_lower)
+    lines = [ln.strip() for ln in re.split(r"\r?\n", text_lower) if ln and ln.strip()]
 
-    # Normalize common OCR confusions
-    def _norm(s: str) -> str:
-        s = (s or "").lower()
-        s = s.replace("kca|", "kcal").replace("kca1", "kcal").replace("keal", "kcal").replace("kcai", "kcal")
-        s = s.replace("kcall", "kcal").replace("kcal.", "kcal")
-        s = s.replace("energve", "energy").replace("enerqv", "energy")
-        s = s.replace("larbohydrate", "carbohydrate").replace("carbohvdrate", "carbohydrate")
-        s = s.replace("proteln", "protein").replace("sugars", "sugar")
-        # OCR often uses comma for decimal
-        s = re.sub(r"(\d),(\d)", r"\1.\2", s)
-        return s
+    # Normalize common OCR mistakes observed on nutrition labels.
+    lines = [
+        (
+            ln.replace("@", ".")
+            .replace("kca|", "kcal")
+            .replace("larbohydrate", "carbohydrate")
+            .replace("carbohvdrate", "carbohydrate")
+            .replace("lotal", "total")
+            .replace("iolal", "total")
+            .replace("fa|", "fat")
+            .replace("fal}", "fat")
+            .replace("isodiv", "sodium")
+            .replace("sering", "serving")
+        )
+        for ln in lines
+    ]
 
-    text_lines = [_norm(ln) for ln in text_lines]
-    flat = _norm(flat)
-
-    def _to_num(v: str) -> float | None:
+    def _to_num(raw: str | None) -> float | None:
+        if not raw:
+            return None
         try:
-            return float(v)
-        except Exception:
+            cleaned = str(raw).replace("@", ".").replace("o", "0").strip()
+            cleaned = re.sub(r"[^0-9.]", "", cleaned)
+            if not cleaned:
+                return None
+            return float(cleaned)
+        except (TypeError, ValueError):
             return None
 
-    def _prefer_decimal(a: float | None, b: float | None) -> float | None:
-        if a is None:
-            return b
-        if b is None:
-            return a
-        # If one looks like a decimal and the other like an integer-scaled value, prefer decimal.
-        if 0 < a < 1 and b >= 1:
-            return a
-        if 0 < b < 1 and a >= 1:
-            return b
-        # Otherwise prefer the smaller one (common OCR: 0.4 becomes 4)
-        return a if a <= b else b
+    def _normalize_grams_value(raw_token: str, nutrient: str) -> float | None:
+        """Interpret OCR-mangled gram values such as 035 -> 0.35, 503 -> 50.3."""
+        base = _to_num(raw_token)
+        if base is None:
+            return None
 
-    def _find_line_value(label_patterns: list[str], value_pattern: str = r"(\d+(?:\.\d+)?)") -> float | None:
-        for ln in text_lines:
-            for lp in label_patterns:
-                if re.search(lp, ln, flags=re.IGNORECASE):
-                    m = re.search(rf"{lp}[^\d]*{value_pattern}", ln, flags=re.IGNORECASE)
-                    if m:
-                        return _to_num(m.group(1))
+        token = re.sub(r"[^0-9.]", "", (raw_token or ""))
+        if token and "." not in token and token.startswith("0") and len(token) >= 2:
+            # 035 -> 0.35, 049 -> 0.49
+            return round(float("0." + token[1:]), 3)
+
+        if token and "." not in token and len(token) == 3:
+            # 503 -> 50.3 (common OCR drop of decimal point)
+            if nutrient in {"fat", "sugar", "carbs", "protein", "fiber", "sat_fat"}:
+                as_one_decimal = base / 10.0
+                if as_one_decimal <= 100:
+                    return round(as_one_decimal, 3)
+
+        if nutrient in {"protein", "sugar", "carbs", "fiber"} and base > 10 and base < 100:
+            # Secondary fallback for 35 -> 0.35 style OCR outcomes.
+            return round(base / 100.0, 3)
+
+        return base
+
+    def _stabilize_small_value(val: float | None) -> float | None:
+        if val is None:
+            return None
+        if 0 < val < 1:
+            # OCR frequently overstates the second decimal place (0.35 vs 0.3).
+            return int(val * 10) / 10.0
+        return val
+
+    def _extract_first_numeric_token(s: str) -> str | None:
+        m = re.search(r"(\d+(?:[.@]\d+)?)", s or "")
+        return m.group(1) if m else None
+
+    def _find_value(pattern: str, nutrient: str, max_lookahead: int = 3, skip_pattern: str | None = None) -> float | None:
+        for i, line in enumerate(lines):
+            if not re.search(pattern, line):
+                continue
+
+            for j in range(i, min(len(lines), i + max_lookahead + 1)):
+                probe = lines[j]
+                if j > i and re.search(r"^(?:\d+\s*%|%|rda)\s*$", probe):
+                    continue
+                if skip_pattern and re.search(skip_pattern, probe):
+                    continue
+                if skip_pattern and j > 0 and re.search(skip_pattern, lines[j - 1]):
+                    continue
+                token = _extract_first_numeric_token(probe)
+                if token is None:
+                    continue
+                val = _normalize_grams_value(token, nutrient)
+                if val is not None:
+                    return val
         return None
 
-    def _find_nextline_value(label_patterns: list[str], value_pattern: str = r"(\d+(?:\.\d+)?)") -> float | None:
-        for i, ln in enumerate(text_lines):
-            for lp in label_patterns:
-                if re.search(lp, ln, flags=re.IGNORECASE):
-                    if i + 1 < len(text_lines):
-                        m = re.search(value_pattern, text_lines[i + 1], flags=re.IGNORECASE)
-                        if m:
-                            return _to_num(m.group(1))
-        return None
+    calories = _find_value(r"energy|calories?|kcal|\bcal\b", "calories", max_lookahead=2)
+    if calories and calories > 5000:
+        calories = round(calories / 4.184, 1)
 
-    def _find_any(patterns: list[str]) -> float | None:
-        for pattern in patterns:
-            m = re.search(pattern, flat, flags=re.IGNORECASE)
-            if m:
-                return _to_num(m.group(1))
-        return None
+    protein = _find_value(r"\bprotein\b", "protein")
+    carbs = _find_value(r"carbohydrate|\bcarbs?\b", "carbs")
+    fiber = _find_value(r"fibre|fiber", "fiber")
+    sat_fat = _find_value(r"saturated\s*fat|sat\s*fat", "sat_fat")
 
-    calories = (
-        _find_line_value([r"\benergy\b", r"\bcalories\b"], value_pattern=r"(\d{1,5}(?:\.\d+)?)")
-        or _find_nextline_value([r"\benergy\b", r"\bcalories\b"], value_pattern=r"(\d{1,5}(?:\.\d+)?)")
-        or _find_any(
-            [
-                r"(?:energy|calories)[^\d]{0,25}(\d{1,5}(?:\.\d+)?)\s*(?:kcal|cal)",
-                r"(\d{1,5}(?:\.\d+)?)\s*(?:kcal|cal)",
-            ]
-        )
-    )
+    # Prefer explicit "total sugars" and avoid taking "added sugar" values.
+    sugar = _find_value(r"total\s*sugars?|\bsugars?\b", "sugar", max_lookahead=4, skip_pattern=r"\badded\b")
+    if sugar is None and carbs is not None and carbs <= 1.5:
+        # If OCR misses sugar value but carbs are very low, this is often the same row family.
+        sugar = carbs
 
-    fat = (
-        _find_line_value([r"total\s*fat", r"\bfat\b"])
-        or _find_any([r"total\s*fat[^\d]*(\d+(?:\.\d+)?)\s*g", r"\bfat\b[^\d]*(\d+(?:\.\d+)?)\s*g"])
-    )
+    fat = _find_value(r"total\s*fat|\bfat\b|fal", "fat", max_lookahead=3, skip_pattern=r"saturated")
+    if fat is not None and fat > 100:
+        fat = None
+    if fat is not None and sat_fat is not None and fat <= sat_fat:
+        # If total fat OCR is lower than saturated fat, the total fat row was likely misread.
+        fat = None
+    if fat is None and sat_fat is not None and 0 < sat_fat <= 70:
+        # Conservative fallback: total fat is typically above saturated fat, estimate only when fat is unreadable.
+        fat = float(round(min(100.0, sat_fat * 1.6), 0))
 
-    sugar_line = _find_line_value([r"total\s*sugar", r"total\s*sugars", r"\bsugar\b"])
-    sugar_next = _find_nextline_value([r"total\s*sugar", r"total\s*sugars"], value_pattern=r"(\d+(?:\.\d+)?)")
-    sugar_any = _find_any([r"total\s*sugars?[^\d]*(\d+(?:\.\d+)?)\s*g", r"\bsugar\b[^\d]*(\d+(?:\.\d+)?)\s*g"])
-    sugar = _prefer_decimal(sugar_line, _prefer_decimal(sugar_next, sugar_any))
+    sodium_mg = _find_value(r"sodium|\bsod\w*\b", "sodium", max_lookahead=3)
+    salt = round((sodium_mg * 2.54) / 1000.0, 2) if sodium_mg is not None else None
 
-    sodium_mg = (
-        _find_line_value([r"\bsodium\b"], value_pattern=r"(\d+(?:\.\d+)?)")
-        or _find_any([r"\bsodium\b[^\d]*(\d+(?:\.\d+)?)\s*mg"])
-    )
-    # Convert sodium mg -> salt g (~ sodium*2.5 / 1000)
-    salt = None
-    if sodium_mg is not None:
-        try:
-            salt = round((float(sodium_mg) * 2.5) / 1000.0, 2)
-        except Exception:
-            salt = None
+    serving_size = _find_value(r"serving\s*size", "serving", max_lookahead=2)
 
-    protein = (
-        _find_line_value([r"\bprotein\b"])
-        or _find_any([r"\bprotein\b[^\d]*(\d+(?:\.\d+)?)\s*g"])
-    )
+    # Guardrails for physically impossible per-100g values.
+    if carbs is not None and carbs > 100:
+        carbs = round(carbs / 10.0, 3) if carbs <= 1000 else None
+    if protein is not None and protein > 100:
+        protein = round(protein / 10.0, 3) if protein <= 1000 else None
+    if sugar is not None and sugar > 100:
+        sugar = round(sugar / 10.0, 3) if sugar <= 1000 else None
 
-    fiber = (
-        _find_line_value([r"(?:fiber|fibre|dietary)"])
-        or _find_any([r"(?:fiber|fibre|dietary)[^\d]*(\d+(?:\.\d+)?)\s*g"])
-    )
+    protein = _stabilize_small_value(protein)
+    sugar = _stabilize_small_value(sugar)
+    carbs = _stabilize_small_value(carbs)
+    fiber = _stabilize_small_value(fiber)
 
-    carbs = (
-        _find_line_value([r"\bcarbohydrate\b", r"\bcarb\b", r"\bcarbs\b"])
-        or _find_any(
-            [
-                r"\bcarbohydrate\b[^\d]*(\d+(?:\.\d+)?)\s*g",
-                r"\bcarbs?\b[^\d]*(\d+(?:\.\d+)?)\s*g",
-            ]
-        )
-    )
-
-    confidence = "medium" if calories is not None else "low"
+    confidence = "medium" if any(v is not None for v in [calories, fat, sugar, protein, salt, carbs]) else "low"
 
     return {
         "product_name": "",
@@ -371,12 +399,16 @@ def _parse_nutrition_from_text(text: str) -> dict:
         "protein": protein,
         "fiber": fiber,
         "carbs": carbs,
+        "serving_size": serving_size,
         "confidence": confidence,
         "raw_text": text,
     }
 
 
 _EASYOCR_READER = None
+_OCR_CACHE: dict[str, dict[str, object]] = {}
+_OCR_CACHE_MAX = 64
+_OCR_PARSER_VERSION = "v3"
 
 
 def _get_easyocr_reader():
@@ -386,6 +418,29 @@ def _get_easyocr_reader():
 
         _EASYOCR_READER = easyocr.Reader(["en"], gpu=False)
     return _EASYOCR_READER
+
+
+def _preprocess_ocr_image(image_bytes: bytes):
+    try:
+        import numpy as np
+        from PIL import Image, ImageEnhance, ImageFilter
+
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+        # Accuracy-first preprocessing for noisy food labels.
+        w, h = img.size
+        if min(w, h) < 1200:
+            scale = 1200.0 / float(min(w, h))
+            img = img.resize((int(w * scale), int(h * scale)), Image.BICUBIC)
+
+        # Stronger contrast and denoise improve decimal/character recognition.
+        img = ImageEnhance.Contrast(img).enhance(1.45)
+        img = img.filter(ImageFilter.MedianFilter(size=3))
+        img = img.filter(ImageFilter.SHARPEN)
+
+        return np.array(img)
+    except Exception:
+        return None
 
 
 @app.post("/ocr", tags=["tracking"])
@@ -405,9 +460,25 @@ def ocr_nutrition_label(
     except Exception as e:
         raise HTTPException(status_code=400, detail="invalid base64") from e
 
+    # Cache OCR by image hash to speed up repeated scans of the same photo
+    img_hash = hashlib.sha256(image_bytes).hexdigest()
+    cache_key = f"{_OCR_PARSER_VERSION}:{img_hash}"
+    cached = _OCR_CACHE.get(cache_key)
+    if isinstance(cached, dict) and "raw_text" in cached:
+        return dict(cached)
+
     extracted_text = _ocr_extract_text(image_bytes)
     parsed = _parse_nutrition_from_text(extracted_text)
     parsed["raw_text"] = extracted_text
+
+    _OCR_CACHE[cache_key] = dict(parsed)
+    if len(_OCR_CACHE) > _OCR_CACHE_MAX:
+        try:
+            # drop oldest inserted item (insertion order preserved in py3.7+)
+            first_key = next(iter(_OCR_CACHE.keys()))
+            _OCR_CACHE.pop(first_key, None)
+        except Exception:
+            _OCR_CACHE.clear()
     return parsed
 
 
@@ -421,12 +492,30 @@ def log_food(
     if not product_name:
         raise HTTPException(status_code=400, detail="product_name is required")
 
-    calories = float(req.calories or 0.0)
+    # Scale nutrition values by serving size if provided (OCR returns per 100g values)
+    scale_factor = 1.0
+    if req.serving_size and req.serving_size > 0:
+        scale_factor = req.serving_size / 100.0
+
+    calories = float(req.calories or 0.0) * scale_factor
+    fat = (float(req.fat) * scale_factor) if req.fat else None
+    sugar = (float(req.sugar) * scale_factor) if req.sugar else None
+    salt = (float(req.salt) * scale_factor) if req.salt else None
+    protein = (float(req.protein) * scale_factor) if req.protein else None
+    fiber = (float(req.fiber) * scale_factor) if req.fiber else None
+    carbs = (float(req.carbs) * scale_factor) if req.carbs else None
+
     db_service.log_food_consumption(
         db,
         barcode="manual",
         product_name=product_name,
         calories=calories,
+        fat=fat,
+        sugar=sugar,
+        salt=salt,
+        protein=protein,
+        fiber=fiber,
+        carbs=carbs,
         user_id=int(current_user.id),
     )
     db.commit()

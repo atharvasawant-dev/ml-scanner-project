@@ -37,21 +37,35 @@ def _calculate_day_score(
     product_counts: dict[str, int],
 ) -> int:
     score = 100
-    for n, data in nutrients.items():
-        if data["percentage_used"] > 1.0:
-            score -= 15
+
+    # Calorie overflow must always be POOR regardless of product-level bonuses.
+    calories_data = nutrients.get("calories", {})
+    calories_exceeded = calories_data.get("percentage_used", 0) > 100
+    if calories_exceeded:
+        score = 35
+    else:
+        # Otherwise, penalize nutrient overages normally.
+        for n, data in nutrients.items():
+            if n == "calories":
+                continue
+            pct = data["percentage_used"] / 100
+            if pct > 1.0:
+                score -= 15
+
     score -= product_counts.get("AVOID", 0) * 10
     score -= product_counts.get("MODERATE", 0) * 5
     score += product_counts.get("SAFE", 0) * 5
+    if calories_exceeded:
+        score = min(score, 39)
     return max(0, min(100, score))
 
 
 def _day_rating(score: int) -> str:
-    if score >= 80:
+    if score >= 90:
         return "GREAT"
-    if score >= 60:
+    if score >= 70:
         return "GOOD"
-    if score >= 40:
+    if score >= 50:
         return "FAIR"
     return "POOR"
 

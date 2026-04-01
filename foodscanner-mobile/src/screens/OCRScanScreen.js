@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import * as ImagePicker from 'expo-image-picker';
 
 import { scanNutritionLabel } from '../services/api';
-import { logFoodEntry } from '../services/foodLog';
 
 const C = {
   cream: '#F5F2EC',
@@ -54,17 +53,6 @@ export default function OCRScanScreen({ navigation, route }) {
     try {
       const res = await scanNutritionLabel(asset.base64);
       setLastOcr(res);
-
-      if (res?.calories) {
-        try {
-          await logFoodEntry(
-            res.product_name || 'OCR Scanned Product',
-            parseFloat(res.calories) || 0
-          ).catch(() => {});
-        } catch (e) {
-          // ignore
-        }
-      }
 
       if (res?.raw_text) {
         Alert.alert('OCR Raw Text', String(res.raw_text).slice(0, 1200));

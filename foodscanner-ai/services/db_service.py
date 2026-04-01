@@ -132,6 +132,12 @@ def log_food_consumption(
     barcode: str,
     product_name: str,
     calories: Optional[float],
+    fat: Optional[float] = None,
+    sugar: Optional[float] = None,
+    salt: Optional[float] = None,
+    protein: Optional[float] = None,
+    fiber: Optional[float] = None,
+    carbs: Optional[float] = None,
     user_id: int = 1,
 ) -> FoodLog:
     if calories is None:
@@ -141,6 +147,12 @@ def log_food_consumption(
         barcode=str(barcode),
         product_name=str(product_name or ""),
         calories=calories,
+        fat=fat,
+        sugar=sugar,
+        salt=salt,
+        protein=protein,
+        fiber=fiber,
+        carbs=carbs,
         consumed_at=_local_now_str(),
     )
     db.add(log)
