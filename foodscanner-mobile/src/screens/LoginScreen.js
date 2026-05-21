@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 
-import { login, register } from '../services/api';
+import { getNetworkErrorMessage, login, register } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const C = {
@@ -58,7 +58,7 @@ export default function LoginScreen() {
     } catch (e) {
       console.log('Login/Register failed:', e);
       console.log('Response data:', e?.response?.data);
-      const msg = e?.response?.data?.detail || e?.message || 'Login failed';
+      const msg = getNetworkErrorMessage(e) || 'Login failed';
       Alert.alert('Error', String(msg));
     } finally {
       setLoading(false);
@@ -138,7 +138,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <Text style={styles.note}>
-            Web uses localhost backend. Phone uses your LAN IP.
+            Create an account or sign in to start scanning.
           </Text>
         </View>
       </KeyboardAvoidingView>

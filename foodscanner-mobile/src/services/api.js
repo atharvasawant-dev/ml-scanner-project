@@ -4,48 +4,83 @@ import Constants from 'expo-constants';
 import { getToken, removeToken } from '../utils/storage';
 import { resetToLogin } from '../utils/navigationRef';
 
-const DEFAULT_WEB_URL = 'http://localhost:8000';
-const DEFAULT_ANDROID_EMULATOR_URL = 'http://10.0.2.2:8000';
-const DEFAULT_LAN_URL = 'http://192.168.29.149:8000';
+const DEFAULT_PUBLIC_URL = 'https://foodscanner-ai.onrender.com';
+const API_PORT = '8000';
 
 function normalizeBaseUrl(url) {
   if (!url || typeof url !== 'string') return null;
   return url.trim().replace(/\/+$/, '');
 }
 
+function extractHost(value) {
+  if (!value || typeof value !== 'string') return null;
+
+  const rawValue = value.trim();
+  if (!rawValue) return null;
+
+  try {
+    const withProtocol = rawValue.includes('://') ? rawValue : `http://${rawValue}`;
+    const parsed = new URL(withProtocol);
+    return parsed.hostname || null;
+  } catch (_e) {
+    const host = rawValue.split('/')[0].split(':')[0];
+    return host || null;
+  }
+}
+
 function getExpoHostIp() {
   try {
-    const hostUri = Constants?.expoConfig?.hostUri;
-    if (!hostUri || typeof hostUri !== 'string') return null;
-    const host = hostUri.split(':')[0];
-    if (!host || host === 'localhost') return null;
-    return host;
-  } catch (e) {
-    return null;
+    const candidates = [
+      Constants?.expoConfig?.hostUri,
+      Constants?.expoGoConfig?.debuggerHost,
+      Constants?.manifest?.debuggerHost,
+      Constants?.manifest?.hostUri,
+      Constants?.manifest2?.extra?.expoClient?.hostUri,
+      Constants?.manifest2?.extra?.expoClient?.debuggerHost,
+    ];
+
+    for (const candidate of candidates) {
+      const host = extractHost(candidate);
+      if (host && host !== 'localhost' && host !== '127.0.0.1') {
+        return host;
+      }
+    }
+  } catch (_e) {
+    // Fall through to the public backend URL.
   }
+  return null;
 }
 
 const envBaseUrl = normalizeBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
 const expoHostIp = getExpoHostIp();
-const expoDerivedUrl = expoHostIp ? `http://${expoHostIp}:8000` : null;
-const defaultNativeUrl = Platform.OS === 'android' ? expoDerivedUrl || DEFAULT_LAN_URL : DEFAULT_WEB_URL;
+const expoDerivedUrl = expoHostIp ? `http://${expoHostIp}:${API_PORT}` : null;
+const defaultNativeUrl = expoDerivedUrl || DEFAULT_PUBLIC_URL;
 export const BASE_URL =
   envBaseUrl ||
   (Platform.OS === 'web'
-    ? DEFAULT_WEB_URL
-    : Platform.OS === 'android'
-      ? defaultNativeUrl
-      : DEFAULT_WEB_URL);
+    ? DEFAULT_PUBLIC_URL
+    : defaultNativeUrl);
 
 let _baseUrlLogged = false;
 export function getApiBaseUrl() {
   return BASE_URL;
 }
 
+export function getNetworkErrorMessage(error) {
+  if (error?.response) {
+    return error.response.data?.detail || error.message || 'Request failed';
+  }
+
+  if (error?.request || error?.message === 'Network Error') {
+    return `Cannot reach backend at ${BASE_URL}. Please check your internet connection and try again.`;
+  }
+
+  return error?.message || 'Request failed';
+}
+
 function logBaseUrlOnce() {
   if (_baseUrlLogged) return;
   _baseUrlLogged = true;
-  // eslint-disable-next-line no-console
   console.log('API BASE_URL =', BASE_URL);
 }
 
@@ -69,12 +104,12 @@ client.interceptors.response.use(
     if (error?.response?.status === 401) {
       try {
         await removeToken();
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
       try {
         resetToLogin();
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     }
