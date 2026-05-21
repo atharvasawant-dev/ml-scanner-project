@@ -1,11 +1,36 @@
 # FoodScanner Mobile
 
-Expo React Native app for barcode scanning, OCR nutrition-label scanning, food analysis, and daily tracking.
+Expo React Native client for FoodScanner AI. The app gives users a mobile-first workflow for logging in, scanning or entering packaged foods, reviewing health analysis, and tracking daily nutrition activity.
 
-## Live App
+## Live Deployment
 
 - Web app: https://foodscanner-mobile.onrender.com
 - Backend API: https://foodscanner-ai.onrender.com
+
+## Core Screens
+
+- Authentication: login and registration
+- Home: primary scan and product workflow entry point
+- Scan: barcode/product scanning
+- Manual entry: fallback for products that cannot be scanned
+- Reports: daily and weekly food activity summaries
+- Profile: user preferences and account details
+
+## Configuration
+
+The client reads its backend URL from `EXPO_PUBLIC_API_BASE_URL`.
+
+For production/public usage:
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=https://foodscanner-ai.onrender.com
+```
+
+For local Expo testing on a physical phone:
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://YOUR_LOCAL_IP:8000
+```
 
 ## What You Need For A Shareable APK
 
