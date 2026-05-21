@@ -16,9 +16,15 @@ dependencies = [
   "uvicorn",
   "sqlalchemy",
   "psycopg2-binary",
+  "python-jose[cryptography]",
+  "passlib[argon2]",
   "requests",
   "rapidfuzz",
   "python-dotenv",
+  "pillow",
+  "pytesseract",
+  "easyocr",
+  "email-validator",
   "tqdm",
 ]
 

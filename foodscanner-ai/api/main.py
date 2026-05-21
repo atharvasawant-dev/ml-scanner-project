@@ -192,23 +192,25 @@ def _csv_fuzzy_lookup(name: str, threshold: float = 75.0) -> dict | None:
 
 def _ocr_extract_text(image_bytes: bytes) -> str:
     # Prefer easyocr (far better for nutrition labels). Fall back to pytesseract.
-    try:
-        import numpy as np
-        from PIL import Image
+    ocr_engine = str(os.getenv("FOODSCANNER_OCR_ENGINE") or "easyocr").strip().lower()
+    if ocr_engine != "tesseract":
+        try:
+            import numpy as np
+            from PIL import Image
 
-        arr = _preprocess_ocr_image(image_bytes)
-        if arr is None:
-            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-            arr = np.array(img)
+            arr = _preprocess_ocr_image(image_bytes)
+            if arr is None:
+                img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+                arr = np.array(img)
 
-        reader = _get_easyocr_reader()
-        parts = reader.readtext(arr, detail=0)
-        text = "\n".join([str(p) for p in parts if p])
-        if text.strip():
-            return text
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"easyocr failed: {e}")
+            reader = _get_easyocr_reader()
+            parts = reader.readtext(arr, detail=0)
+            text = "\n".join([str(p) for p in parts if p])
+            if text.strip():
+                return text
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.error(f"easyocr failed: {e}")
 
     try:
         from PIL import Image
@@ -260,8 +262,9 @@ def _parse_nutrition_from_text(text: str) -> dict:
     lines = [ln.strip() for ln in re.split(r"\r?\n", text_lower) if ln and ln.strip()]
 
     # Normalize common OCR mistakes observed on nutrition labels.
-    lines = [
-        (
+    normalized_lines = []
+    for ln in lines:
+        ln = (
             ln.replace("@", ".")
             .replace("kca|", "kcal")
             .replace("larbohydrate", "carbohydrate")
@@ -270,11 +273,21 @@ def _parse_nutrition_from_text(text: str) -> dict:
             .replace("iolal", "total")
             .replace("fa|", "fat")
             .replace("fal}", "fat")
+            .replace("proein", "protein")
             .replace("isodiv", "sodium")
             .replace("sering", "serving")
         )
-        for ln in lines
-    ]
+        # EasyOCR often reads a trailing "g" as "9" on compact nutrition rows:
+        # "fat7 9", "sugars59", "protein 129".
+        ln = re.sub(
+            r"\b(fat|sugars?|protein|fibre|fiber|carbohydrate|carbs)\s*(\d{1,2})\s*9\b",
+            r"\1 \2 g",
+            ln,
+        )
+        # Salt decimals often lose the dot: "salt0 2g".
+        ln = re.sub(r"\b(salt)\s*(\d+)\s+(\d+)\s*g\b", r"\1 \2.\3 g", ln)
+        normalized_lines.append(ln)
+    lines = normalized_lines
 
     def _to_num(raw: str | None) -> float | None:
         if not raw:
@@ -305,10 +318,6 @@ def _parse_nutrition_from_text(text: str) -> dict:
                 as_one_decimal = base / 10.0
                 if as_one_decimal <= 100:
                     return round(as_one_decimal, 3)
-
-        if nutrient in {"protein", "sugar", "carbs", "fiber"} and base > 10 and base < 100:
-            # Secondary fallback for 35 -> 0.35 style OCR outcomes.
-            return round(base / 100.0, 3)
 
         return base
 
@@ -370,8 +379,10 @@ def _parse_nutrition_from_text(text: str) -> dict:
         # Conservative fallback: total fat is typically above saturated fat, estimate only when fat is unreadable.
         fat = float(round(min(100.0, sat_fat * 1.6), 0))
 
+    salt = _find_value(r"\bsalt\b", "salt", max_lookahead=2)
     sodium_mg = _find_value(r"sodium|\bsod\w*\b", "sodium", max_lookahead=3)
-    salt = round((sodium_mg * 2.54) / 1000.0, 2) if sodium_mg is not None else None
+    if salt is None and sodium_mg is not None:
+        salt = round((sodium_mg * 2.54) / 1000.0, 2)
 
     serving_size = _find_value(r"serving\s*size", "serving", max_lookahead=2)
 
@@ -632,7 +643,7 @@ def analyze(
 @app.on_event("startup")
 def on_startup() -> None:
     orm_init_db()
-    print("FoodScanner API running on http://127.0.0.1:8000")
+    print("FoodScanner API running. For Expo Go, start uvicorn with --host 0.0.0.0 and open http://<your-lan-ip>:8000/health")
 
 
 @app.get("/health", tags=["tracking"])
@@ -787,14 +798,19 @@ def scan(
     if not barcode:
         raise HTTPException(status_code=400, detail="barcode is required")
 
-    result = lookup_product(
-        db,
-        barcode,
-        product_name_hint=req.product_name,
-        user_id=int(current_user.id),
-        daily_calorie_limit=int(current_user.daily_calorie_limit or 2000),
-        diet_type=current_user.diet_type,
-    )
+    try:
+        result = lookup_product(
+            db,
+            barcode,
+            product_name_hint=req.product_name,
+            user_id=int(current_user.id),
+            daily_calorie_limit=int(current_user.daily_calorie_limit or 2000),
+            diet_type=current_user.diet_type,
+        )
+    except Exception as e:
+        logging.error(f"Scan error for barcode {barcode}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Scan error: {str(e)}")
+    
     if result is None:
         raise HTTPException(status_code=404, detail="product not found")
 

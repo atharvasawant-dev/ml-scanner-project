@@ -1,0 +1,16 @@
+fastapi
+numpy
+pandas
+psycopg2-binary
+python-jose[cryptography]
+python-dotenv
+passlib[argon2]
+sqlalchemy
+rapidfuzz
+requests
+scikit-learn
+tqdm
+uvicorn
+pytesseract
+pillow
+email-validator
