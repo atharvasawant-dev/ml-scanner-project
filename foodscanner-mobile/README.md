@@ -2,6 +2,11 @@
 
 Expo React Native app for barcode scanning, OCR nutrition-label scanning, food analysis, and daily tracking.
 
+## Live App
+
+- Web app: https://foodscanner-mobile.onrender.com
+- Backend API: https://foodscanner-ai.onrender.com
+
 ## What You Need For A Shareable APK
 
 For an APK that other people can use:
@@ -22,7 +27,7 @@ npm install
 Create `.env` in this folder:
 
 ```bash
-EXPO_PUBLIC_API_BASE_URL=https://your-public-backend-url.onrender.com
+EXPO_PUBLIC_API_BASE_URL=https://foodscanner-ai.onrender.com
 ```
 
 Start the app:
