@@ -97,3 +97,29 @@ This repository includes a root `render.yaml` for deploying both services:
 ## Status
 
 The public frontend and backend are deployed and connected. The project is structured as a monorepo so the API, ML pipeline, and mobile client can evolve together while keeping deployment configuration in one place.
+
+## Overview
+
+ml-scanner-project is a Python repository focused on practical, maintainable project work.
+
+## Setup
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+```
+
+
+## Usage
+
+Run the main Python entry point or module for this repository after installing dependencies.
+
+
+## Validation
+
+Run `python -m compileall .` for a syntax pass. When tests are present, run `pytest` before committing changes.
+
+## Maintenance
+
+Last documentation review: 2026-08-04. Keep this README aligned with the current setup, usage, and repository structure.
