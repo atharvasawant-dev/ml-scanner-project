@@ -123,3 +123,7 @@ Run `python -m compileall .` for a syntax pass. When tests are present, run `pyt
 ## Maintenance
 
 Last documentation review: 2026-08-04. Keep this README aligned with the current setup, usage, and repository structure.
+
+## Maintenance
+
+Last documentation review: 2026-08-05. Keep this README aligned with the current setup, usage, and repository structure.
