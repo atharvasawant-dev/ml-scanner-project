@@ -147,3 +147,7 @@ Last documentation review: 2026-08-09. Keep this README aligned with the current
 ## Maintenance
 
 Last documentation review: 2026-08-10. Keep this README aligned with the current setup, usage, and repository structure.
+
+## Maintenance
+
+Last documentation review: 2026-08-11. Keep this README aligned with the current setup, usage, and repository structure.
