@@ -45,6 +45,7 @@ def get_product_by_barcode(db: Session, barcode: str) -> Optional[dict[str, Any]
         "id": product.id,
         "barcode": product.barcode,
         "product_name": product.product_name,
+        "brand": product.brand,
         "nutriscore": product.nutriscore,
         "ingredients": product.ingredients,
         "additives": product.additives,
@@ -64,12 +65,15 @@ def create_product(db: Session, product_data: dict[str, Any]) -> Product:
 
     existing = db.execute(select(Product).where(Product.barcode == barcode)).scalar_one_or_none()
     if existing is not None:
-        existing.product_name = str(product_data.get("product_name") or existing.product_name)
-        if product_data.get("nutriscore") is not None:
+        if product_data.get("product_name") and not existing.product_name:
+            existing.product_name = str(product_data.get("product_name"))
+        if product_data.get("brand") is not None and not existing.brand:
+            existing.brand = str(product_data.get("brand"))
+        if product_data.get("nutriscore") is not None and not existing.nutriscore:
             existing.nutriscore = str(product_data.get("nutriscore"))
-        if product_data.get("ingredients") is not None:
+        if product_data.get("ingredients") is not None and not existing.ingredients:
             existing.ingredients = product_data.get("ingredients")
-        if product_data.get("additives") is not None:
+        if product_data.get("additives") is not None and not existing.additives:
             existing.additives = product_data.get("additives")
         db.add(existing)
         db.flush()
@@ -78,6 +82,7 @@ def create_product(db: Session, product_data: dict[str, Any]) -> Product:
     product = Product(
         barcode=barcode,
         product_name=str(product_data.get("product_name") or ""),
+        brand=product_data.get("brand"),
         nutriscore=product_data.get("nutriscore"),
         ingredients=product_data.get("ingredients"),
         additives=product_data.get("additives"),
