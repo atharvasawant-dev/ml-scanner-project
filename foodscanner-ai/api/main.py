@@ -77,6 +77,7 @@ class OCRRequest(BaseModel):
 
 class FoodLogRequest(BaseModel):
     product_name: str
+    barcode: str | None = None
     calories: float = 0
     fat: float | None = None
     sugar: float | None = None
@@ -103,6 +104,9 @@ class UserProfileUpdateRequest(BaseModel):
     name: str | None = None
     daily_calorie_limit: int | None = None
     diet_type: str | None = None
+    age: int | None = None
+    weight: float | None = None
+    height: float | None = None
     goal_type: str | None = None
     goal_target_days: int | None = None
 
@@ -518,7 +522,7 @@ def log_food(
 
     db_service.log_food_consumption(
         db,
-        barcode="manual",
+        barcode=(req.barcode or "manual"),
         product_name=product_name,
         calories=calories,
         fat=fat,
@@ -1033,6 +1037,9 @@ def update_user_profile(
         name=req.name,
         daily_calorie_limit=req.daily_calorie_limit,
         diet_type=diet_type,
+        age=req.age,
+        weight=req.weight,
+        height=req.height,
         goal_type=req.goal_type,
         goal_target_days=req.goal_target_days,
     )

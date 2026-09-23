@@ -170,6 +170,11 @@ export async function scanNutritionLabel(base64Image) {
   return res.data;
 }
 
+export async function logFoodItem(data) {
+  const res = await client.post('/food-log', data);
+  return res.data;
+}
+
 export const logFoodManual = async (productName, calories) => {
   const token = await getToken();
   const response = await axios.post(

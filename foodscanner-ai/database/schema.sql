@@ -4,10 +4,11 @@ CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     barcode TEXT NOT NULL UNIQUE,
     product_name TEXT NOT NULL,
+    brand TEXT,
     nutriscore TEXT,
     ingredients TEXT,
     additives TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS nutrition (
@@ -25,17 +26,25 @@ CREATE TABLE IF NOT EXISTS nutrition (
 
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
     email TEXT NOT NULL UNIQUE,
+    hashed_password TEXT NOT NULL DEFAULT '',
+    age INTEGER,
+    weight REAL,
+    height REAL,
     daily_calorie_limit INTEGER NOT NULL DEFAULT 2000,
     diet_type TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    goal_type TEXT,
+    goal_target_days INTEGER DEFAULT 30,
+    goal_started_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS scan_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL DEFAULT 1,
     barcode TEXT NOT NULL,
-    scan_time TEXT NOT NULL DEFAULT (datetime('now')),
+    scan_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     result TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -54,7 +63,13 @@ CREATE TABLE IF NOT EXISTS daily_food_log (
     barcode TEXT NOT NULL,
     product_name TEXT NOT NULL,
     calories REAL,
-    consumed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    fat REAL,
+    sugar REAL,
+    salt REAL,
+    protein REAL,
+    fiber REAL,
+    carbs REAL,
+    consumed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 

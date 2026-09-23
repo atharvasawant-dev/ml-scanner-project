@@ -236,7 +236,7 @@ def compute_diet_aware_score(product: dict, diet_type: str | None) -> dict:
 
     elif dt == "low_sodium":
         salt = _to_float(product.get("salt"))
-        score += _salt_penalty(salt)  # triple penalty
+        score += 2 * _salt_penalty(salt)  # triple penalty (1x in base + 2x additional = 3x total)
         notes.append("Salt penalty tripled for low-sodium diet")
 
     else:

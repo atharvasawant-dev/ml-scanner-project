@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 
-import { explainProduct } from '../services/api';
+import { explainProduct, logFoodItem } from '../services/api';
 
 const C = {
   cream: '#F5F2EC',
@@ -112,6 +112,8 @@ export default function ResultScreen({ route, navigation }) {
   const [explain, setExplain] = useState(null);
   const [explainError, setExplainError] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [loggingFood, setLoggingFood] = useState(false);
+  const [foodLogged, setFoodLogged] = useState(false);
 
   useEffect(() => {
     setServingGrams('100');
@@ -119,6 +121,8 @@ export default function ResultScreen({ route, navigation }) {
     setExplainError(false);
     setShowBreakdown(false);
     setLoadingExplain(false);
+    setFoodLogged(false);
+    setLoggingFood(false);
   }, [route?.params?.timestamp]);
 
   useEffect(() => {
@@ -127,6 +131,30 @@ export default function ResultScreen({ route, navigation }) {
 
   const decisionMeta = useMemo(() => _decisionMeta(decision), [decision]);
   const ingredientRisk = useMemo(() => _riskBadge(ingredientAnalysis?.risk_level), [ingredientAnalysis]);
+
+  const handleLogToDiary = async () => {
+    if (loggingFood || foodLogged) return;
+    setLoggingFood(true);
+    try {
+      await logFoodItem({
+        product_name: productName || 'Unknown Product',
+        barcode: barcode || 'manual',
+        calories: perServing.calories ?? 0,
+        fat: perServing.fat,
+        sugar: perServing.sugar,
+        salt: perServing.salt,
+        protein: perServing.protein,
+        fiber: perServing.fiber,
+        carbs: perServing.carbs,
+        serving_size: servingSizeNum,
+      });
+      setFoodLogged(true);
+    } catch (_e) {
+      // ignore
+    } finally {
+      setLoggingFood(false);
+    }
+  };
 
   const loadExplain = async () => {
     if (!barcode) return;
@@ -359,6 +387,20 @@ export default function ResultScreen({ route, navigation }) {
       </View>
 
       <TouchableOpacity
+        style={[styles.diaryBtn, foodLogged ? styles.diaryBtnSuccess : null]}
+        onPress={handleLogToDiary}
+        disabled={loggingFood || foodLogged}
+      >
+        {loggingFood ? (
+          <ActivityIndicator color={C.white} size="small" />
+        ) : (
+          <Text style={styles.diaryBtnText}>
+            {foodLogged ? '✓ Logged to Daily Diary' : '+ Log to Daily Diary'}
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
         style={styles.inkBtn}
         onPress={() => {
           navigation.reset({
@@ -425,6 +467,9 @@ const styles = StyleSheet.create({
   stepValue: { marginTop: 6, color: C.muted, fontWeight: '800' },
   stepText: { marginTop: 6, color: C.muted, fontWeight: '600' },
 
-  inkBtn: { marginTop: 14, backgroundColor: C.ink, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  diaryBtn: { marginTop: 14, backgroundColor: C.sage, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  diaryBtnSuccess: { backgroundColor: '#2d6a32' },
+  diaryBtnText: { color: C.white, fontWeight: '900', fontSize: 16 },
+  inkBtn: { marginTop: 10, backgroundColor: C.ink, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
   inkBtnText: { color: C.white, fontWeight: '900', fontSize: 16 },
 });
