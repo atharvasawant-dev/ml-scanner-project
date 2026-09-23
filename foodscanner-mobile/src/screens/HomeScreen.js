@@ -53,6 +53,8 @@ export default function HomeScreen({ navigation }) {
       setProfile(p);
       setReport(r);
       setTodayFoods(Array.isArray(t?.foods) ? t.foods : []);
+    } catch (_e) {
+      // Gracefully retain existing/default state on temporary network hiccups
     } finally {
       setLoading(false);
     }

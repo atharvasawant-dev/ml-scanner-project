@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getToken, removeToken, saveToken } from '../utils/storage';
+import { setUnauthorizedHandler } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -10,6 +11,14 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     getToken().then((token) => setIsLoggedIn(!!token));
+
+    setUnauthorizedHandler(() => {
+      setIsLoggedIn(false);
+    });
+
+    return () => {
+      setUnauthorizedHandler(null);
+    };
   }, []);
 
   const login = async (token) => {

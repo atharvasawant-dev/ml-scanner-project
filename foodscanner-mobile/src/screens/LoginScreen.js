@@ -56,9 +56,7 @@ export default function LoginScreen() {
       }
       await authLogin(token);
     } catch (e) {
-      console.log('Login/Register failed:', e);
-      console.log('Response data:', e?.response?.data);
-      const msg = getNetworkErrorMessage(e) || 'Login failed';
+      const msg = getNetworkErrorMessage(e) || 'Authentication failed';
       Alert.alert('Error', String(msg));
     } finally {
       setLoading(false);

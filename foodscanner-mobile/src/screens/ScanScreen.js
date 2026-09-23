@@ -151,6 +151,9 @@ export default function ScanScreen({ navigation }) {
           <View style={styles.cameraWrap}>
             <CameraView
               style={StyleSheet.absoluteFill}
+              barcodeScannerSettings={{
+                barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'],
+              }}
               onBarcodeScanned={scanned ? undefined : onBarcodeScanned}
             />
             <View style={styles.cameraOverlay}>

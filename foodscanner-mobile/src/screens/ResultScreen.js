@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Alert } from 'react-native';
 
 import { explainProduct, logFoodItem } from '../services/api';
 
@@ -149,8 +149,9 @@ export default function ResultScreen({ route, navigation }) {
         serving_size: servingSizeNum,
       });
       setFoodLogged(true);
-    } catch (_e) {
-      // ignore
+    } catch (e) {
+      const msg = e?.response?.data?.detail || e?.message || 'Could not log item to diary.';
+      Alert.alert('Logging Failed', String(msg));
     } finally {
       setLoggingFood(false);
     }

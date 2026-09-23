@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 
 import { analyzeManualProduct } from '../services/api';
-import { logFoodEntry } from '../services/foodLog';
 
 const C = {
   cream: '#F5F2EC',
@@ -117,15 +116,6 @@ export default function ManualEntryScreen({ navigation, route }) {
         health_score: analyzed?.health_score,
         reasons: analyzed?.reasons,
       };
-
-      try {
-        await logFoodEntry(
-          productName || 'Manual Entry',
-          parseFloat(result?.product?.nutrition?.calories || calories) || 0
-        ).catch(() => {});
-      } catch (e) {
-        // ignore
-      }
 
       navigation.replace('Result', { result, timestamp: Date.now() });
     } catch (e) {

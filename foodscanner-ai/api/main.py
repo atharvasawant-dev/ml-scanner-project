@@ -38,11 +38,30 @@ import pandas as pd
 from rapidfuzz import fuzz
 
 
+def _get_allowed_origins() -> list[str]:
+    raw = os.environ.get("ALLOWED_ORIGINS") or os.environ.get("CORS_ORIGINS") or ""
+    configured = [o.strip() for o in raw.split(",") if o.strip()]
+    defaults = [
+        "http://localhost:8081",
+        "http://localhost:19006",
+        "http://localhost:3000",
+        "http://127.0.0.1:8081",
+        "http://127.0.0.1:19006",
+        "http://127.0.0.1:3000",
+    ]
+    origins = []
+    for origin in defaults + configured:
+        if origin not in origins and origin != "*":
+            origins.append(origin)
+    return origins
+
+
 app = FastAPI(title="FoodScanner AI API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_get_allowed_origins(),
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -859,7 +878,11 @@ def scan(
 
 
 @app.post("/compare", tags=["products"])
-def compare(req: CompareRequest, db: Session = Depends(get_db)) -> dict:
+def compare(
+    req: CompareRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
     a = db_service.get_product_by_name_fuzzy(db, req.product_a, min_similarity=80.0)
     if a is None:
         ds = _csv_fuzzy_lookup(req.product_a, threshold=75.0)

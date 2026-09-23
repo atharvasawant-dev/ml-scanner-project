@@ -54,13 +54,33 @@ export default function OCRScanScreen({ navigation, route }) {
       const res = await scanNutritionLabel(asset.base64);
       setLastOcr(res);
 
-      if (res?.raw_text) {
-        Alert.alert('OCR Raw Text', String(res.raw_text).slice(0, 1200));
+      const hasValues = res && (
+        res.calories != null ||
+        res.fat != null ||
+        res.sugar != null ||
+        res.protein != null ||
+        res.salt != null ||
+        res.fiber != null ||
+        res.carbs != null
+      );
+
+      if (!hasValues) {
+        Alert.alert(
+          'Low Confidence',
+          'Could not detect clear nutrition values. Please review and enter them manually.'
+        );
       }
       goManual(res);
     } catch (e) {
-      const msg = e?.response?.data?.detail || e?.message || 'Could not read label.';
-      Alert.alert('Could not read label', 'Could not read label. Please enter manually.');
+      let msg = 'Could not read label. Please enter manually.';
+      if (e?.code === 'ECONNABORTED' || e?.message?.includes('timeout')) {
+        msg = 'OCR request timed out. Please enter details manually.';
+      } else if (e?.response?.data?.detail) {
+        msg = String(e.response.data.detail);
+      } else if (!e?.response) {
+        msg = 'Backend unreachable. Please verify network connection or enter manually.';
+      }
+      Alert.alert('Scan Note', msg);
       goManual(null);
     } finally {
       setLoading(false);
@@ -68,40 +88,48 @@ export default function OCRScanScreen({ navigation, route }) {
   };
 
   const takePhoto = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm?.granted) {
-      Alert.alert('Permission required', 'Camera permission is required to take a photo.');
-      return;
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm?.granted) {
+        Alert.alert('Permission required', 'Camera permission is required to take a photo.');
+        return;
+      }
+
+      const res = await ImagePicker.launchCameraAsync({
+        base64: true,
+        quality: 0.8,
+        allowsEditing: false,
+      });
+
+      if (res?.canceled) return;
+      const asset = res?.assets?.[0];
+      await processAsset(asset);
+    } catch (e) {
+      Alert.alert('Camera Error', 'Unable to capture photo. Please try again or choose from gallery.');
     }
-
-    const res = await ImagePicker.launchCameraAsync({
-      base64: true,
-      quality: 0.8,
-      allowsEditing: false,
-    });
-
-    if (res?.canceled) return;
-    const asset = res?.assets?.[0];
-    await processAsset(asset);
   };
 
   const chooseFromGallery = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm?.granted) {
-      Alert.alert('Permission required', 'Gallery permission is required to pick a photo.');
-      return;
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm?.granted) {
+        Alert.alert('Permission required', 'Gallery permission is required to pick a photo.');
+        return;
+      }
+
+      const res = await ImagePicker.launchImageLibraryAsync({
+        base64: true,
+        quality: 0.8,
+        allowsEditing: false,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      });
+
+      if (res?.canceled) return;
+      const asset = res?.assets?.[0];
+      await processAsset(asset);
+    } catch (e) {
+      Alert.alert('Gallery Error', 'Unable to pick photo. Please try again.');
     }
-
-    const res = await ImagePicker.launchImageLibraryAsync({
-      base64: true,
-      quality: 0.8,
-      allowsEditing: false,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    });
-
-    if (res?.canceled) return;
-    const asset = res?.assets?.[0];
-    await processAsset(asset);
   };
 
   return (
@@ -122,15 +150,6 @@ export default function OCRScanScreen({ navigation, route }) {
           <View style={styles.loadingBox}>
             <ActivityIndicator color={C.sage} />
             <Text style={styles.loadingText}>Reading nutrition label...</Text>
-          </View>
-        ) : null}
-
-        {!loading && lastOcr?.raw_text ? (
-          <View style={styles.rawBox}>
-            <Text style={styles.rawTitle}>Raw OCR text (debug)</Text>
-            <Text style={styles.rawText} numberOfLines={10}>
-              {String(lastOcr.raw_text)}
-            </Text>
           </View>
         ) : null}
 

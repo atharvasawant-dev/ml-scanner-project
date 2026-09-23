@@ -37,6 +37,8 @@ function getExpoHostIp() {
       Constants?.manifest?.hostUri,
       Constants?.manifest2?.extra?.expoClient?.hostUri,
       Constants?.manifest2?.extra?.expoClient?.debuggerHost,
+      Constants?.linkingUri,
+      Constants?.experienceUrl,
     ];
 
     for (const candidate of candidates) {
@@ -46,7 +48,7 @@ function getExpoHostIp() {
       }
     }
   } catch (_e) {
-    // Fall through to the public backend URL.
+    // Fall through to default URL
   }
   return null;
 }
@@ -61,7 +63,14 @@ export const BASE_URL =
     ? DEFAULT_PUBLIC_URL
     : defaultNativeUrl);
 
-let _baseUrlLogged = false;
+console.log('API base URL:', BASE_URL);
+
+let _unauthorizedHandler = null;
+
+export function setUnauthorizedHandler(handler) {
+  _unauthorizedHandler = handler;
+}
+
 export function getApiBaseUrl() {
   return BASE_URL;
 }
@@ -76,12 +85,6 @@ export function getNetworkErrorMessage(error) {
   }
 
   return error?.message || 'Request failed';
-}
-
-function logBaseUrlOnce() {
-  if (_baseUrlLogged) return;
-  _baseUrlLogged = true;
-  console.log('API BASE_URL =', BASE_URL);
 }
 
 const client = axios.create({
@@ -107,10 +110,18 @@ client.interceptors.response.use(
       } catch (_e) {
         // ignore
       }
-      try {
-        resetToLogin();
-      } catch (_e) {
-        // ignore
+      if (typeof _unauthorizedHandler === 'function') {
+        try {
+          _unauthorizedHandler();
+        } catch (_e) {
+          // ignore
+        }
+      } else {
+        try {
+          resetToLogin();
+        } catch (_e) {
+          // ignore
+        }
       }
     }
     return Promise.reject(error);
@@ -118,19 +129,16 @@ client.interceptors.response.use(
 );
 
 export async function login(email, password) {
-  logBaseUrlOnce();
   const res = await client.post('/login', { email, password });
   return res.data;
 }
 
 export async function register(email, password, name) {
-  logBaseUrlOnce();
   const res = await client.post('/register', { email, password, name });
   return res.data;
 }
 
 export async function pingApi() {
-  logBaseUrlOnce();
   const res = await client.get('/docs');
   return res.status;
 }
@@ -176,16 +184,11 @@ export async function logFoodItem(data) {
 }
 
 export const logFoodManual = async (productName, calories) => {
-  const token = await getToken();
-  const response = await axios.post(
-    `${BASE_URL}/food-log`,
-    {
-      product_name: productName,
-      calories: parseFloat(calories) || 0,
-    },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  return response.data;
+  const res = await client.post('/food-log', {
+    product_name: productName,
+    calories: parseFloat(calories) || 0,
+  });
+  return res.data;
 };
 
 export async function getUserProfile() {

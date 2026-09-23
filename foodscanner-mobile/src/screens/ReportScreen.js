@@ -68,7 +68,7 @@ export default function ReportScreen() {
   if (!daily || !weekly) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: C.muted, fontWeight: '800' }}>Please log in again to see your report</Text>
+        <Text style={{ color: C.muted, fontWeight: '800' }}>Unable to load reports. Please check connection and try again.</Text>
       </View>
     );
   }
