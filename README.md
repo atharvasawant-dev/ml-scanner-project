@@ -1,6 +1,6 @@
 # PRAMAAN — AI Food Scanner (ml-scanner-project)
 
-[![CI / Test Suite](https://img.shields.io/badge/Backend%20Tests-57%20Passing-brightgreen)](file:///c:/Users/student/Desktop/devside/ml-scanner-project/foodscanner-ai/tests)
+[![CI / Test Suite](https://img.shields.io/badge/Backend%20Tests-77%20Passing-brightgreen)](file:///c:/Users/student/Desktop/devside/ml-scanner-project/foodscanner-ai/tests)
 [![Mobile Tests](https://img.shields.io/badge/Mobile%20Tests-5%20Passing-brightgreen)](file:///c:/Users/student/Desktop/devside/ml-scanner-project/foodscanner-mobile/tests)
 [![Expo SDK](https://img.shields.io/badge/Expo%20SDK-54-blue)](file:///c:/Users/student/Desktop/devside/ml-scanner-project/foodscanner-mobile/package.json)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue)](file:///c:/Users/student/Desktop/devside/ml-scanner-project/foodscanner-ai/pyproject.toml)

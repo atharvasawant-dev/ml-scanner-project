@@ -35,6 +35,7 @@ from services.food_health_score import compute_food_health_score
 from services.final_decision_engine import compute_final_decision
 from services.decision_explainer import build_decision_reasons
 from services.claim_verification import verify_claims
+from services.ocr_service import process_image_ocr, parse_structured_ocr, run_ocr_engine
 
 import pandas as pd
 from rapidfuzz import fuzz
@@ -103,6 +104,7 @@ class AnalyzeRequest(BaseModel):
 
 class OCRRequest(BaseModel):
     image_base64: str
+    claims: list[str] | None = None
 
 
 class FoodLogRequest(BaseModel):
@@ -225,267 +227,12 @@ def _csv_fuzzy_lookup(name: str, threshold: float = 75.0) -> dict | None:
 
 
 def _ocr_extract_text(image_bytes: bytes) -> str:
-    # Prefer easyocr (far better for nutrition labels). Fall back to pytesseract.
-    ocr_engine = str(os.getenv("FOODSCANNER_OCR_ENGINE") or "easyocr").strip().lower()
-    if ocr_engine != "tesseract":
-        try:
-            import numpy as np
-            from PIL import Image
-
-            arr = _preprocess_ocr_image(image_bytes)
-            if arr is None:
-                img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-                arr = np.array(img)
-
-            reader = _get_easyocr_reader()
-            parts = reader.readtext(arr, detail=0)
-            text = "\n".join([str(p) for p in parts if p])
-            if text.strip():
-                return text
-        except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.error(f"easyocr failed: {e}")
-
-    try:
-        from PIL import Image
-    except Exception as e:
-        raise HTTPException(status_code=501, detail="Pillow is not installed") from e
-
-    try:
-        import pytesseract
-    except Exception as e:
-        raise HTTPException(status_code=501, detail="pytesseract is not installed") from e
-
-    try:
-        img = Image.open(io.BytesIO(image_bytes))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="invalid image") from e
-
-    try:
-        from PIL import ImageOps
-
-        img = ImageOps.exif_transpose(img)
-        img = img.convert("L")
-        img = ImageOps.autocontrast(img)
-        # Upscale for better OCR on small labels
-        img = img.resize((img.size[0] * 2, img.size[1] * 2))
-        # Simple threshold
-        img = img.point(lambda p: 255 if p > 160 else 0)
-
-        # Try multiple page segmentation modes and pick the best.
-        def score_text(t: str) -> tuple[int, int]:
-            # Prefer text with digits and keywords (nutrition labels)
-            digits = sum(ch.isdigit() for ch in (t or ""))
-            keywords = sum(1 for k in ["kcal", "energy", "fat", "protein", "sugar", "salt", "carb"] if k in (t or "").lower())
-            return (digits, keywords)
-
-        t1 = pytesseract.image_to_string(img, config="--oem 3 --psm 6")
-        t2 = pytesseract.image_to_string(img, config="--oem 3 --psm 4")
-        text = t1 if score_text(t1) >= score_text(t2) else t2
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"pytesseract failed: {e}")
-        return ""
-
-    return str(text or "")
+    text, _ = run_ocr_engine(image_bytes)
+    return text
 
 
 def _parse_nutrition_from_text(text: str) -> dict:
-    """Parse nutrition values from noisy OCR text with conservative, nutrient-specific heuristics."""
-    text_lower = (text or "").lower()
-    lines = [ln.strip() for ln in re.split(r"\r?\n", text_lower) if ln and ln.strip()]
-
-    # Normalize common OCR mistakes observed on nutrition labels.
-    normalized_lines = []
-    for ln in lines:
-        ln = (
-            ln.replace("@", ".")
-            .replace("kca|", "kcal")
-            .replace("larbohydrate", "carbohydrate")
-            .replace("carbohvdrate", "carbohydrate")
-            .replace("lotal", "total")
-            .replace("iolal", "total")
-            .replace("fa|", "fat")
-            .replace("fal}", "fat")
-            .replace("proein", "protein")
-            .replace("isodiv", "sodium")
-            .replace("sering", "serving")
-        )
-        # EasyOCR often reads a trailing "g" as "9" on compact nutrition rows:
-        # "fat7 9", "sugars59", "protein 129".
-        ln = re.sub(
-            r"\b(fat|sugars?|protein|fibre|fiber|carbohydrate|carbs)\s*(\d{1,2})\s*9\b",
-            r"\1 \2 g",
-            ln,
-        )
-        # Salt decimals often lose the dot: "salt0 2g".
-        ln = re.sub(r"\b(salt)\s*(\d+)\s+(\d+)\s*g\b", r"\1 \2.\3 g", ln)
-        normalized_lines.append(ln)
-    lines = normalized_lines
-
-    def _to_num(raw: str | None) -> float | None:
-        if not raw:
-            return None
-        try:
-            cleaned = str(raw).replace("@", ".").replace("o", "0").strip()
-            cleaned = re.sub(r"[^0-9.]", "", cleaned)
-            if not cleaned:
-                return None
-            return float(cleaned)
-        except (TypeError, ValueError):
-            return None
-
-    def _normalize_grams_value(raw_token: str, nutrient: str) -> float | None:
-        """Interpret OCR-mangled gram values such as 035 -> 0.35, 503 -> 50.3."""
-        base = _to_num(raw_token)
-        if base is None:
-            return None
-
-        token = re.sub(r"[^0-9.]", "", (raw_token or ""))
-        if token and "." not in token and token.startswith("0") and len(token) >= 2:
-            # 035 -> 0.35, 049 -> 0.49
-            return round(float("0." + token[1:]), 3)
-
-        if token and "." not in token and len(token) == 3:
-            # 503 -> 50.3 (common OCR drop of decimal point)
-            if nutrient in {"fat", "sugar", "carbs", "protein", "fiber", "sat_fat"}:
-                as_one_decimal = base / 10.0
-                if as_one_decimal <= 100:
-                    return round(as_one_decimal, 3)
-
-        return base
-
-    def _stabilize_small_value(val: float | None) -> float | None:
-        if val is None:
-            return None
-        if 0 < val < 1:
-            # OCR frequently overstates the second decimal place (0.35 vs 0.3).
-            return int(val * 10) / 10.0
-        return val
-
-    def _extract_first_numeric_token(s: str) -> str | None:
-        m = re.search(r"(\d+(?:[.@]\d+)?)", s or "")
-        return m.group(1) if m else None
-
-    def _find_value(pattern: str, nutrient: str, max_lookahead: int = 3, skip_pattern: str | None = None) -> float | None:
-        for i, line in enumerate(lines):
-            if not re.search(pattern, line):
-                continue
-
-            for j in range(i, min(len(lines), i + max_lookahead + 1)):
-                probe = lines[j]
-                if j > i and re.search(r"^(?:\d+\s*%|%|rda)\s*$", probe):
-                    continue
-                if skip_pattern and re.search(skip_pattern, probe):
-                    continue
-                if skip_pattern and j > 0 and re.search(skip_pattern, lines[j - 1]):
-                    continue
-                token = _extract_first_numeric_token(probe)
-                if token is None:
-                    continue
-                val = _normalize_grams_value(token, nutrient)
-                if val is not None:
-                    return val
-        return None
-
-    calories = _find_value(r"energy|calories?|kcal|\bcal\b", "calories", max_lookahead=2)
-    if calories and calories > 5000:
-        calories = round(calories / 4.184, 1)
-
-    protein = _find_value(r"\bprotein\b", "protein")
-    carbs = _find_value(r"carbohydrate|\bcarbs?\b", "carbs")
-    fiber = _find_value(r"fibre|fiber", "fiber")
-    sat_fat = _find_value(r"saturated\s*fat|sat\s*fat", "sat_fat")
-
-    # Prefer explicit "total sugars" and avoid taking "added sugar" values.
-    sugar = _find_value(r"total\s*sugars?|\bsugars?\b", "sugar", max_lookahead=4, skip_pattern=r"\badded\b")
-    if sugar is None and carbs is not None and carbs <= 1.5:
-        # If OCR misses sugar value but carbs are very low, this is often the same row family.
-        sugar = carbs
-
-    fat = _find_value(r"total\s*fat|\bfat\b|fal", "fat", max_lookahead=3, skip_pattern=r"saturated")
-    if fat is not None and fat > 100:
-        fat = None
-    if fat is not None and sat_fat is not None and fat <= sat_fat:
-        # If total fat OCR is lower than saturated fat, the total fat row was likely misread.
-        fat = None
-    if fat is None and sat_fat is not None and 0 < sat_fat <= 70:
-        # Conservative fallback: total fat is typically above saturated fat, estimate only when fat is unreadable.
-        fat = float(round(min(100.0, sat_fat * 1.6), 0))
-
-    salt = _find_value(r"\bsalt\b", "salt", max_lookahead=2)
-    sodium_mg = _find_value(r"sodium|\bsod\w*\b", "sodium", max_lookahead=3)
-    if salt is None and sodium_mg is not None:
-        salt = round((sodium_mg * 2.54) / 1000.0, 2)
-
-    serving_size = _find_value(r"serving\s*size", "serving", max_lookahead=2)
-
-    # Guardrails for physically impossible per-100g values.
-    if carbs is not None and carbs > 100:
-        carbs = round(carbs / 10.0, 3) if carbs <= 1000 else None
-    if protein is not None and protein > 100:
-        protein = round(protein / 10.0, 3) if protein <= 1000 else None
-    if sugar is not None and sugar > 100:
-        sugar = round(sugar / 10.0, 3) if sugar <= 1000 else None
-
-    protein = _stabilize_small_value(protein)
-    sugar = _stabilize_small_value(sugar)
-    carbs = _stabilize_small_value(carbs)
-    fiber = _stabilize_small_value(fiber)
-
-    confidence = "medium" if any(v is not None for v in [calories, fat, sugar, protein, salt, carbs]) else "low"
-
-    return {
-        "product_name": "",
-        "calories": calories,
-        "fat": fat,
-        "sugar": sugar,
-        "salt": salt,
-        "protein": protein,
-        "fiber": fiber,
-        "carbs": carbs,
-        "serving_size": serving_size,
-        "confidence": confidence,
-        "raw_text": text,
-    }
-
-
-_EASYOCR_READER = None
-_OCR_CACHE: dict[str, dict[str, object]] = {}
-_OCR_CACHE_MAX = 64
-_OCR_PARSER_VERSION = "v3"
-
-
-def _get_easyocr_reader():
-    global _EASYOCR_READER
-    if _EASYOCR_READER is None:
-        import easyocr
-
-        _EASYOCR_READER = easyocr.Reader(["en"], gpu=False)
-    return _EASYOCR_READER
-
-
-def _preprocess_ocr_image(image_bytes: bytes):
-    try:
-        import numpy as np
-        from PIL import Image, ImageEnhance, ImageFilter
-
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-
-        # Accuracy-first preprocessing for noisy food labels.
-        w, h = img.size
-        if min(w, h) < 1200:
-            scale = 1200.0 / float(min(w, h))
-            img = img.resize((int(w * scale), int(h * scale)), Image.BICUBIC)
-
-        # Stronger contrast and denoise improve decimal/character recognition.
-        img = ImageEnhance.Contrast(img).enhance(1.45)
-        img = img.filter(ImageFilter.MedianFilter(size=3))
-        img = img.filter(ImageFilter.SHARPEN)
-
-        return np.array(img)
-    except Exception:
-        return None
+    return parse_structured_ocr(text)
 
 
 @app.post("/ocr", tags=["tracking"])
@@ -505,26 +252,32 @@ def ocr_nutrition_label(
     except Exception as e:
         raise HTTPException(status_code=400, detail="invalid base64") from e
 
-    # Cache OCR by image hash to speed up repeated scans of the same photo
-    img_hash = hashlib.sha256(image_bytes).hexdigest()
-    cache_key = f"{_OCR_PARSER_VERSION}:{img_hash}"
-    cached = _OCR_CACHE.get(cache_key)
-    if isinstance(cached, dict) and "raw_text" in cached:
-        return dict(cached)
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="empty image payload")
 
-    extracted_text = _ocr_extract_text(image_bytes)
-    parsed = _parse_nutrition_from_text(extracted_text)
-    parsed["raw_text"] = extracted_text
+    result = process_image_ocr(image_bytes)
 
-    _OCR_CACHE[cache_key] = dict(parsed)
-    if len(_OCR_CACHE) > _OCR_CACHE_MAX:
-        try:
-            # drop oldest inserted item (insertion order preserved in py3.7+)
-            first_key = next(iter(_OCR_CACHE.keys()))
-            _OCR_CACHE.pop(first_key, None)
-        except Exception:
-            _OCR_CACHE.clear()
-    return parsed
+    # Optional Batch 5 Claim Verification integration if claims are passed
+    if req.claims:
+        eff_nutrition = {
+            "calories": result.get("calories"),
+            "fat": result.get("fat"),
+            "sugar": result.get("sugar"),
+            "salt": result.get("salt"),
+            "protein": result.get("protein"),
+            "fiber": result.get("fiber"),
+            "carbs": result.get("carbs"),
+        }
+        ing_raw = ""
+        if isinstance(result.get("ingredients"), dict):
+            ing_raw = result["ingredients"].get("raw_text") or ""
+        result["claim_verification"] = verify_claims(
+            claims=req.claims,
+            nutrition=eff_nutrition,
+            ingredients=ing_raw,
+        )
+
+    return result
 
 
 @app.post("/food-log", tags=["tracking"])
