@@ -224,10 +224,38 @@ def _evaluate_candidate(
     else:
         reason = ", ".join(reason_parts[:-1]) + f" and {reason_parts[-1]}"
 
+    cand_nutr_for_score = {
+        "calories": c_cal,
+        "sugar": c_sugar,
+        "salt": c_salt,
+        "fat": c_fat,
+        "protein": c_protein,
+        "fiber": c_fiber,
+        "carbs": _to_float(cand_row.get("carbs")),
+    }
+    from services.food_health_score import compute_food_health_score
+    cand_health = compute_food_health_score(cand_nutr_for_score)
+    cand_score = cand_health.get("health_score")
+    cand_decision = cand_health.get("decision")
+
+    cand_ns = cand_row.get("nutriscore")
+    if not cand_ns:
+        try:
+            from ml_model.predict_nutriscore import calculate_heuristic_nutriscore
+            cand_ns = calculate_heuristic_nutriscore(cand_nutr_for_score)
+        except Exception:
+            cand_ns = None
+
+    cand_barcode = cand_row.get("barcode") or None
+
     return {
         "product_name": cand_name,
         "brand": _normalize_name(cand_row.get("brand")) or None,
+        "barcode": cand_barcode,
         "category": cand_cat,
+        "health_score": cand_score,
+        "decision": cand_decision,
+        "nutriscore": cand_ns,
         "nutrition": {
             "calories": c_cal,
             "sugar": c_sugar,

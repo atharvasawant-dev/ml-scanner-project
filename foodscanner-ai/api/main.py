@@ -23,7 +23,7 @@ from database.orm import init_db as orm_init_db
 from database.models import FoodLog, ScanHistory, User
 from services.barcode_lookup import lookup_product
 from services.product_search import search_products
-from services.recommendation_engine import get_healthier_alternatives
+from services.recommendation_engine import get_healthier_alternatives, infer_food_category
 from services import db_service
 from services.health_report import generate_daily_report
 from services.score_explainer import explain_score
@@ -31,11 +31,12 @@ from services.goal_report import generate_goal_report
 from services.auth_service import create_access_token, get_current_user, hash_password, verify_password
 from services.ingredient_analyzer import analyze_ingredients
 from services.additive_analyzer import analyze_additives
-from services.food_health_score import compute_food_health_score
+from services.food_health_score import compute_food_health_score, compute_diet_aware_score
 from services.final_decision_engine import compute_final_decision
 from services.decision_explainer import build_decision_reasons
 from services.claim_verification import verify_claims
 from services.ocr_service import process_image_ocr, parse_structured_ocr, run_ocr_engine
+from services.personalization import get_personalized_analysis
 
 import pandas as pd
 from rapidfuzz import fuzz
@@ -100,6 +101,16 @@ class AnalyzeRequest(BaseModel):
     fiber: float | None = None
     carbs: float | None = None
     serving_size: float | None = None
+    ingredients: str | None = None
+    claims: list[str] | None = None
+
+
+class AlternativesRequest(BaseModel):
+    product_name: str | None = None
+    barcode: str | None = None
+    category: str | None = None
+    nutrition: dict[str, Any] | None = None
+    limit: int = 3
 
 
 class OCRRequest(BaseModel):
@@ -340,26 +351,36 @@ def analyze(
         "protein": req.protein,
         "fiber": req.fiber,
         "carbs": req.carbs,
-        "ingredients": None,
+        "ingredients": req.ingredients,
         "additives": None,
     }
 
     product["ingredient_analysis"] = analyze_ingredients(product.get("ingredients"))
     product["additive_analysis"] = analyze_additives(product.get("additives"))
 
-    health = compute_food_health_score(product)
+    diet_type = getattr(current_user, "diet_type", None)
+    if diet_type:
+        health = compute_diet_aware_score(product, diet_type)
+    else:
+        health = compute_food_health_score(product)
+
+    today_cal = db_service.get_today_calories(db, user_id=int(current_user.id))
+    daily_limit = float(getattr(current_user, "daily_calorie_limit", None) or 2000)
+    remaining_cal = daily_limit - today_cal
+
     final = compute_final_decision(
         health,
-        remaining_calories=float("inf"),
+        remaining_calories=float(remaining_cal),
         product_calories=float(product.get("calories") or 0.0),
     )
     product["health_score"] = final.get("health_score")
     product["final_decision"] = final.get("final_decision")
-    product["reasons"] = build_decision_reasons(product, remaining_calories=float("inf"))
+    product["reasons"] = build_decision_reasons(product, remaining_calories=float(remaining_cal))
 
     diet_note = final.get("diet_note")
     if diet_note is None and isinstance(health, dict):
         diet_note = health.get("diet_note")
+    product["diet_note"] = diet_note
 
     nutrition_per_100g = {
         "calories": product.get("calories"),
@@ -401,7 +422,21 @@ def analyze(
             "carbs": _scale(nutrition_per_100g.get("carbs")),
         }
 
-    return {
+    final_decision_str = str(product.get("final_decision") or "").upper()
+    if final_decision_str != "SAFE":
+        recommendations = get_healthier_alternatives(name, nutrition_per_100g, limit=3)
+    else:
+        recommendations = []
+
+    personalized = get_personalized_analysis(
+        product=product,
+        user=current_user,
+        remaining_calories=remaining_cal,
+        today_calories_consumed=today_cal,
+    )
+    explanation = explain_score(product, diet_type)
+
+    analysis_res = {
         "product": {
             "name": product.get("product_name"),
             "nutrition": nutrition_per_100g,
@@ -419,12 +454,23 @@ def analyze(
             "reasons": product.get("reasons"),
         },
         "diet_note": diet_note,
-        "recommendations": [],
+        "recommendations": recommendations,
         "daily_intake": {
-            "consumed": None,
-            "remaining": None,
+            "consumed": today_cal,
+            "remaining": remaining_cal,
         },
+        "personalized_analysis": personalized,
+        "explanation": explanation,
     }
+
+    if req.claims:
+        analysis_res["claim_verification"] = verify_claims(
+            claims=req.claims,
+            nutrition=nutrition_per_100g,
+            ingredients=product.get("ingredients"),
+        )
+
+    return analysis_res
 
 
 @app.on_event("startup")
@@ -505,15 +551,34 @@ def get_product(
 
     product["ingredient_analysis"] = analyze_ingredients(product.get("ingredients"))
     product["additive_analysis"] = analyze_additives(product.get("additives"))
-    health = compute_food_health_score(product)
+
+    diet_type = getattr(current_user, "diet_type", None)
+    if diet_type:
+        health = compute_diet_aware_score(product, diet_type)
+    else:
+        health = compute_food_health_score(product)
+
+    today_cal = db_service.get_today_calories(db, user_id=int(current_user.id)) if current_user else 0.0
+    daily_limit = float(getattr(current_user, "daily_calorie_limit", None) or 2000)
+    remaining_cal = daily_limit - today_cal
+
     final = compute_final_decision(
         health,
-        remaining_calories=float("inf"),
+        remaining_calories=float(remaining_cal),
         product_calories=float(product.get("calories") or 0.0),
     )
     product["health_score"] = final.get("health_score")
     product["final_decision"] = final.get("final_decision")
-    product["reasons"] = build_decision_reasons(product, remaining_calories=float("inf"))
+    product["reasons"] = build_decision_reasons(product, remaining_calories=float(remaining_cal))
+    product["diet_note"] = health.get("diet_note")
+
+    personalized = get_personalized_analysis(
+        product=product,
+        user=current_user,
+        remaining_calories=remaining_cal,
+        today_calories_consumed=today_cal,
+    )
+    explanation = explain_score(product, diet_type)
 
     analysis = {
         "ingredient_analysis": product.get("ingredient_analysis"),
@@ -528,6 +593,8 @@ def get_product(
     return {
         "product": {
             "name": product.get("product_name"),
+            "brand": product.get("brand"),
+            "barcode": product.get("barcode"),
             "nutrition": {
                 "calories": product.get("calories"),
                 "fat": product.get("fat"),
@@ -541,6 +608,9 @@ def get_product(
         },
         "analysis": analysis,
         "decision": decision,
+        "diet_note": product.get("diet_note"),
+        "personalized_analysis": personalized,
+        "explanation": explanation,
     }
 
 
@@ -639,6 +709,14 @@ def scan(
             "remaining": result.get("remaining_calories"),
         },
     }
+    scan_response["personalized_analysis"] = get_personalized_analysis(
+        product=result,
+        user=current_user,
+        remaining_calories=result.get("remaining_calories"),
+        today_calories_consumed=result.get("today_calories_consumed"),
+    )
+    scan_response["explanation"] = explain_score(result, getattr(current_user, "diet_type", None))
+
     if req.claims:
         scan_response["claim_verification"] = verify_claims(
             claims=req.claims,
@@ -684,103 +762,266 @@ def verify_claims_endpoint(
     return verify_claims(claims=req.claims, nutrition=nutrition, ingredients=ingredients)
 
 
+@app.post("/alternatives", tags=["products"])
+def alternatives_endpoint(
+    req: AlternativesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    name = (req.product_name or "").strip()
+    barcode = (req.barcode or "").strip()
+    nutrition = dict(req.nutrition) if isinstance(req.nutrition, dict) else {}
+
+    if not name and not barcode:
+        raise HTTPException(status_code=400, detail="product_name or barcode is required")
+
+    # If barcode provided and name or nutrition missing, look up product
+    if barcode:
+        prod = db_service.get_product_by_barcode(db, barcode)
+        if prod:
+            if not name:
+                name = prod.get("product_name") or ""
+            db_nutr = {
+                "calories": prod.get("calories"),
+                "fat": prod.get("fat"),
+                "sugar": prod.get("sugar"),
+                "salt": prod.get("salt"),
+                "protein": prod.get("protein"),
+                "fiber": prod.get("fiber"),
+                "carbs": prod.get("carbs"),
+            }
+            for k, v in db_nutr.items():
+                if k not in nutrition and v is not None:
+                    nutrition[k] = v
+
+    if not nutrition and name:
+        # Try finding product in db or csv to get nutrition
+        found = db_service.get_product_by_name_fuzzy(db, name, min_similarity=80.0)
+        if not found:
+            found = _csv_fuzzy_lookup(name, threshold=75.0)
+        if found:
+            nutrition = {
+                "calories": found.get("calories"),
+                "fat": found.get("fat"),
+                "sugar": found.get("sugar"),
+                "salt": found.get("salt"),
+                "protein": found.get("protein"),
+                "fiber": found.get("fiber"),
+                "carbs": found.get("carbs"),
+            }
+
+    limit = max(1, min(10, int(req.limit or 3)))
+    alternatives = get_healthier_alternatives(name, nutrition, limit=limit)
+    category = infer_food_category(name, nutrition)
+
+    return {
+        "product_name": name or None,
+        "barcode": barcode or None,
+        "category": category,
+        "alternatives": alternatives,
+        "total_alternatives": len(alternatives),
+    }
+
+
+@app.get("/alternatives/{barcode}", tags=["products"])
+def get_alternatives_by_barcode(
+    barcode: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    barcode_str = (barcode or "").strip()
+    if not barcode_str:
+        raise HTTPException(status_code=400, detail="barcode is required")
+
+    prod = db_service.get_product_by_barcode(db, barcode_str)
+    if prod is None:
+        raise HTTPException(status_code=404, detail="product not found")
+
+    nutrition = {
+        "calories": prod.get("calories"),
+        "fat": prod.get("fat"),
+        "sugar": prod.get("sugar"),
+        "salt": prod.get("salt"),
+        "protein": prod.get("protein"),
+        "fiber": prod.get("fiber"),
+        "carbs": prod.get("carbs"),
+    }
+    name = str(prod.get("product_name") or "")
+    category = infer_food_category(name, nutrition)
+    alternatives = get_healthier_alternatives(name, nutrition, limit=3)
+
+    return {
+        "product_name": name,
+        "barcode": barcode_str,
+        "category": category,
+        "alternatives": alternatives,
+        "total_alternatives": len(alternatives),
+    }
+
+
 @app.post("/compare", tags=["products"])
 def compare(
     req: CompareRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    a = db_service.get_product_by_name_fuzzy(db, req.product_a, min_similarity=80.0)
-    if a is None:
-        ds = _csv_fuzzy_lookup(req.product_a, threshold=75.0)
-        if ds is None:
-            raise HTTPException(status_code=404, detail="product_a not found")
-        a = ds
+    q_a = (req.product_a or "").strip()
+    q_b = (req.product_b or "").strip()
+    if not q_a or not q_b:
+        raise HTTPException(status_code=400, detail="product_a and product_b are required")
 
-    b = db_service.get_product_by_name_fuzzy(db, req.product_b, min_similarity=80.0)
-    if b is None:
-        ds = _csv_fuzzy_lookup(req.product_b, threshold=75.0)
-        if ds is None:
-            raise HTTPException(status_code=404, detail="product_b not found")
-        b = ds
+    def _find_product(query: str, param_name: str) -> dict:
+        if query.isdigit() and 8 <= len(query) <= 14:
+            p = db_service.get_product_by_barcode(db, query)
+            if p is not None:
+                return p
+        p = db_service.get_product_by_name_fuzzy(db, query, min_similarity=80.0)
+        if p is not None:
+            return p
+        ds = _csv_fuzzy_lookup(query, threshold=75.0)
+        if ds is not None:
+            return ds
+        raise HTTPException(status_code=404, detail=f"{param_name} not found")
+
+    a = _find_product(q_a, "product_a")
+    b = _find_product(q_b, "product_b")
+
+    a_enriched = dict(a)
+    if not a_enriched.get("ingredient_analysis"):
+        a_enriched["ingredient_analysis"] = analyze_ingredients(a_enriched.get("ingredients"))
+    if not a_enriched.get("additive_analysis"):
+        a_enriched["additive_analysis"] = analyze_additives(a_enriched.get("additives"))
+
+    b_enriched = dict(b)
+    if not b_enriched.get("ingredient_analysis"):
+        b_enriched["ingredient_analysis"] = analyze_ingredients(b_enriched.get("ingredients"))
+    if not b_enriched.get("additive_analysis"):
+        b_enriched["additive_analysis"] = analyze_additives(b_enriched.get("additives"))
+
+    diet_type = getattr(current_user, "diet_type", None)
+    if diet_type:
+        a_health = compute_diet_aware_score(a_enriched, diet_type)
+        b_health = compute_diet_aware_score(b_enriched, diet_type)
+    else:
+        a_health = compute_food_health_score(a_enriched)
+        b_health = compute_food_health_score(b_enriched)
+
+    a_score_val = a_health.get("health_score")
+    b_score_val = b_health.get("health_score")
+
+    a_nutriscore = a.get("nutriscore")
+    if not a_nutriscore:
+        try:
+            from ml_model.predict_nutriscore import calculate_heuristic_nutriscore
+            a_nutriscore = calculate_heuristic_nutriscore(a)
+        except Exception:
+            a_nutriscore = None
+
+    b_nutriscore = b.get("nutriscore")
+    if not b_nutriscore:
+        try:
+            from ml_model.predict_nutriscore import calculate_heuristic_nutriscore
+            b_nutriscore = calculate_heuristic_nutriscore(b)
+        except Exception:
+            b_nutriscore = None
 
     a_nutrition = {
         "calories": _to_float(a.get("calories")),
-        "sugar": _to_float(a.get("sugar")),
-        "salt": _to_float(a.get("salt")),
         "fat": _to_float(a.get("fat")),
+        "saturated_fat": _to_float(a.get("saturated_fat")),
+        "carbohydrates": _to_float(a.get("carbs")),
+        "sugar": _to_float(a.get("sugar")),
         "fiber": _to_float(a.get("fiber")),
         "protein": _to_float(a.get("protein")),
+        "salt": _to_float(a.get("salt")),
     }
     b_nutrition = {
         "calories": _to_float(b.get("calories")),
-        "sugar": _to_float(b.get("sugar")),
-        "salt": _to_float(b.get("salt")),
         "fat": _to_float(b.get("fat")),
+        "saturated_fat": _to_float(b.get("saturated_fat")),
+        "carbohydrates": _to_float(b.get("carbs")),
+        "sugar": _to_float(b.get("sugar")),
         "fiber": _to_float(b.get("fiber")),
         "protein": _to_float(b.get("protein")),
+        "salt": _to_float(b.get("salt")),
     }
 
-    a_score = 0
-    b_score = 0
     reasons: list[str] = []
-
+    # Factual nutrient comparisons
     if a_nutrition.get("sugar") is not None and b_nutrition.get("sugar") is not None:
         if b_nutrition["sugar"] < a_nutrition["sugar"]:
-            b_score += 1
             pct = _pct_less(a_nutrition["sugar"], b_nutrition["sugar"])
-            reasons.append(f"{pct}% less sugar" if pct is not None else "lower sugar")
+            reasons.append(f"{b.get('product_name')}: {pct}% less sugar" if pct is not None else f"{b.get('product_name')} has lower sugar")
         elif a_nutrition["sugar"] < b_nutrition["sugar"]:
-            a_score += 1
             pct = _pct_less(b_nutrition["sugar"], a_nutrition["sugar"])
-            reasons.append(f"{pct}% less sugar" if pct is not None else "lower sugar")
+            reasons.append(f"{a.get('product_name')}: {pct}% less sugar" if pct is not None else f"{a.get('product_name')} has lower sugar")
 
     if a_nutrition.get("salt") is not None and b_nutrition.get("salt") is not None:
         if b_nutrition["salt"] < a_nutrition["salt"]:
-            b_score += 1
             pct = _pct_less(a_nutrition["salt"], b_nutrition["salt"])
-            reasons.append(f"{pct}% less sodium" if pct is not None else "lower sodium")
+            reasons.append(f"{b.get('product_name')}: {pct}% less sodium" if pct is not None else f"{b.get('product_name')} has lower sodium")
         elif a_nutrition["salt"] < b_nutrition["salt"]:
-            a_score += 1
             pct = _pct_less(b_nutrition["salt"], a_nutrition["salt"])
-            reasons.append(f"{pct}% less sodium" if pct is not None else "lower sodium")
+            reasons.append(f"{a.get('product_name')}: {pct}% less sodium" if pct is not None else f"{a.get('product_name')} has lower sodium")
 
     if a_nutrition.get("fat") is not None and b_nutrition.get("fat") is not None:
         if b_nutrition["fat"] < a_nutrition["fat"]:
-            b_score += 1
             pct = _pct_less(a_nutrition["fat"], b_nutrition["fat"])
-            reasons.append(f"{pct}% less fat" if pct is not None else "lower fat")
+            reasons.append(f"{b.get('product_name')}: {pct}% less fat" if pct is not None else f"{b.get('product_name')} has lower fat")
         elif a_nutrition["fat"] < b_nutrition["fat"]:
-            a_score += 1
             pct = _pct_less(b_nutrition["fat"], a_nutrition["fat"])
-            reasons.append(f"{pct}% less fat" if pct is not None else "lower fat")
+            reasons.append(f"{a.get('product_name')}: {pct}% less fat" if pct is not None else f"{a.get('product_name')} has lower fat")
 
     if a_nutrition.get("fiber") is not None and b_nutrition.get("fiber") is not None:
         if b_nutrition["fiber"] > a_nutrition["fiber"]:
-            b_score += 1
             pct = _pct_more(a_nutrition["fiber"], b_nutrition["fiber"])
-            reasons.append(f"{pct}% more fiber" if pct is not None else "higher fiber")
+            reasons.append(f"{b.get('product_name')}: {pct}% more fiber" if pct is not None else f"{b.get('product_name')} has higher fiber")
         elif a_nutrition["fiber"] > b_nutrition["fiber"]:
-            a_score += 1
             pct = _pct_more(b_nutrition["fiber"], a_nutrition["fiber"])
-            reasons.append(f"{pct}% more fiber" if pct is not None else "higher fiber")
+            reasons.append(f"{a.get('product_name')}: {pct}% more fiber" if pct is not None else f"{a.get('product_name')} has higher fiber")
 
-    if b_score > a_score:
-        healthier = str(b.get("product_name") or "")
-    elif a_score > b_score:
-        healthier = str(a.get("product_name") or "")
+    if a_nutrition.get("protein") is not None and b_nutrition.get("protein") is not None:
+        if b_nutrition["protein"] > a_nutrition["protein"]:
+            pct = _pct_more(a_nutrition["protein"], b_nutrition["protein"])
+            reasons.append(f"{b.get('product_name')}: {pct}% more protein" if pct is not None else f"{b.get('product_name')} has higher protein")
+        elif a_nutrition["protein"] > b_nutrition["protein"]:
+            pct = _pct_more(b_nutrition["protein"], a_nutrition["protein"])
+            reasons.append(f"{a.get('product_name')}: {pct}% more protein" if pct is not None else f"{a.get('product_name')} has higher protein")
+
+    if a_nutrition.get("calories") is not None and b_nutrition.get("calories") is not None:
+        if b_nutrition["calories"] < a_nutrition["calories"]:
+            pct = _pct_less(a_nutrition["calories"], b_nutrition["calories"])
+            reasons.append(f"{b.get('product_name')}: {pct}% fewer calories" if pct is not None else f"{b.get('product_name')} has fewer calories")
+        elif a_nutrition["calories"] < b_nutrition["calories"]:
+            pct = _pct_less(b_nutrition["calories"], a_nutrition["calories"])
+            reasons.append(f"{a.get('product_name')}: {pct}% fewer calories" if pct is not None else f"{a.get('product_name')} has fewer calories")
+
+    if a_score_val is not None and b_score_val is not None:
+        if b_score_val > a_score_val:
+            healthier = str(b.get("product_name") or "")
+        elif a_score_val > b_score_val:
+            healthier = str(a.get("product_name") or "")
+        else:
+            healthier = "TIE"
     else:
         healthier = "TIE"
-        reasons = []
 
     return {
         "product_a": {
             "name": a.get("product_name"),
+            "brand": a.get("brand"),
+            "barcode": a.get("barcode"),
+            "health_score": a_score_val,
+            "nutriscore": a_nutriscore,
             "nutrition": a_nutrition,
             "match": a.get("_match"),
         },
         "product_b": {
             "name": b.get("product_name"),
+            "brand": b.get("brand"),
+            "barcode": b.get("barcode"),
+            "health_score": b_score_val,
+            "nutriscore": b_nutriscore,
             "nutrition": b_nutrition,
             "match": b.get("_match"),
         },
@@ -960,13 +1201,33 @@ def explain_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    product = db_service.get_product_by_barcode(db, barcode.strip())
+    barcode_str = (barcode or "").strip()
+    if not barcode_str:
+        raise HTTPException(status_code=400, detail="barcode is required")
+
+    product = db_service.get_product_by_barcode(db, barcode_str)
+    if product is None:
+        try:
+            product = lookup_product(
+                db,
+                barcode_str,
+                user_id=int(current_user.id),
+                daily_calorie_limit=int(getattr(current_user, "daily_calorie_limit", None) or 2000),
+                diet_type=getattr(current_user, "diet_type", None),
+            )
+        except Exception:
+            product = None
+
     if product is None:
         raise HTTPException(status_code=404, detail="product not found")
-    # Enrich with ingredient/additive analysis for explanation
-    product["ingredient_analysis"] = analyze_ingredients(product.get("ingredients"))
-    product["additive_analysis"] = analyze_additives(product.get("additives"))
-    return explain_score(product, current_user.diet_type)
+
+    # Enrich with ingredient/additive analysis for explanation if missing
+    if not product.get("ingredient_analysis"):
+        product["ingredient_analysis"] = analyze_ingredients(product.get("ingredients"))
+    if not product.get("additive_analysis"):
+        product["additive_analysis"] = analyze_additives(product.get("additives"))
+
+    return explain_score(product, getattr(current_user, "diet_type", None))
 
 
 @app.get("/report/goal", tags=["tracking"])
