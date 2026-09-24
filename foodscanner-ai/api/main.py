@@ -37,6 +37,7 @@ from services.decision_explainer import build_decision_reasons
 from services.claim_verification import verify_claims
 from services.ocr_service import process_image_ocr, parse_structured_ocr, run_ocr_engine
 from services.personalization import get_personalized_analysis
+from services.ai_nutrition_assistant import ask_nutrition_assistant
 
 import pandas as pd
 from rapidfuzz import fuzz
@@ -111,6 +112,12 @@ class AlternativesRequest(BaseModel):
     category: str | None = None
     nutrition: dict[str, Any] | None = None
     limit: int = 3
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, description="User question or query")
+    barcode: str | None = None
+    product_context: dict[str, Any] | None = None
 
 
 class OCRRequest(BaseModel):
@@ -1236,3 +1243,31 @@ def goal_report(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     return generate_goal_report(db, current_user)
+
+
+@app.post("/chat", tags=["assistant"])
+def chat_endpoint(
+    req: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    msg = (req.message or "").strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="message cannot be empty")
+
+    barcode = req.barcode.strip() if isinstance(req.barcode, str) and req.barcode.strip() else None
+
+    try:
+        response = ask_nutrition_assistant(
+            query=msg,
+            barcode=barcode,
+            product_context=req.product_context,
+            user=current_user,
+            db=db,
+        )
+        return response
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as exc:
+        logging.error(f"Chat endpoint error: {exc}")
+        raise HTTPException(status_code=500, detail="An error occurred while processing the chat request")
