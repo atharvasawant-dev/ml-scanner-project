@@ -38,6 +38,10 @@ from services.claim_verification import verify_claims
 from services.ocr_service import process_image_ocr, parse_structured_ocr, run_ocr_engine
 from services.personalization import get_personalized_analysis
 from services.ai_nutrition_assistant import ask_nutrition_assistant
+from services.config import load_environment, validate_runtime_config
+
+# Load environment configuration early
+load_environment()
 
 import pandas as pd
 from rapidfuzz import fuzz
@@ -482,6 +486,8 @@ def analyze(
 
 @app.on_event("startup")
 def on_startup() -> None:
+    # Validate required runtime configuration early before accepting requests
+    validate_runtime_config(raise_error=True)
     orm_init_db()
     print("FoodScanner API running. For Expo Go, start uvicorn with --host 0.0.0.0 and open http://<your-lan-ip>:8000/health")
 

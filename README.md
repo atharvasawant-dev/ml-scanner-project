@@ -165,14 +165,24 @@ python -m venv .venv
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment
+# 4. Configure local environment (REQUIRED)
 cp .env.example .env
+# Open .env and set SECRET_KEY (e.g. python -c "import secrets; print(secrets.token_hex(32))")
+# NOTE: .env must NEVER be committed to Git.
+# Keep AI_PROVIDER=mock for reliable offline/demo testing unless an external LLM is configured.
 
 # 5. Initialize database
 python -m database.init_db
 
 # 6. Start API server
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 7. Swagger / Demo Testing Workflow:
+# - Open interactive documentation at http://127.0.0.1:8000/docs
+# - Register a demo user via POST /register or login via POST /login
+# - Copy the returned "access_token"
+# - Click the green "Authorize" button in Swagger and paste the token
+# - Execute protected endpoints (e.g. POST /scan, POST /chat, GET /today)
 ```
 
 ### Mobile Setup (`foodscanner-mobile`)

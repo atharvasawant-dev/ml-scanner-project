@@ -7,9 +7,10 @@ PRAMAAN AI is the core intelligence engine powering food health scoring, NutriSc
 ## 1. System Components
 
 ### A. FastAPI Application Layer (`api/main.py`)
-- **Route Registration:** 17 structured REST endpoints with Pydantic request validation and response models.
+- **Route Registration:** 23 structured REST endpoints with Pydantic request validation and response models.
+- **Runtime Configuration & Startup Validation Gate (`services/config.py`):** Automatically discovers and loads `.env` across local directories (`foodscanner-ai/.env`, project root `.env`). Startup event runs `validate_runtime_config(raise_error=True)`, ensuring required `SECRET_KEY` is present and non-empty. Prevents runtime 500 errors during authentication by failing fast at boot with clear configuration guidance.
 - **Security Middleware:** Strict CORS origin resolution with dynamic LAN regex support for Expo development clients (`_get_allowed_origins`).
-- **Authentication Dependency:** Injected `get_current_user` enforcing HMAC-SHA256 JWT tokens with Bearer authorization.
+- **Authentication Dependency:** Injected `get_current_user` enforcing HMAC-SHA256 JWT tokens with OpenAPI `HTTPBearer` authorization. Swagger UI includes full interactive Bearer authentication modal.
 
 ### B. Machine Learning & NutriScore Engine (`ml_model/`)
 - **Pipeline:** Gradient Boosting, Random Forest, SVM, and weighted ensemble classification models (`ensemble_model.pkl`).
