@@ -1,187 +1,85 @@
-# FoodScanner AI – Intelligent Food Health Analysis System
+# PRAMAAN / FoodScanner AI — System Architecture & Implementation
 
-## Project Overview
+PRAMAAN AI is the core intelligence engine powering food health scoring, NutriScore prediction, ingredient hazard detection, and nutrition tracking.
 
-FoodScanner AI helps users quickly understand whether a packaged food product is healthy or not. By scanning a product’s barcode, the system analyzes nutrition data, ingredients, and food additives to provide:
+---
 
-- A **health score**
-- A clear decision: **SAFE / MODERATE / AVOID**
-- Simple **explanations** for the decision
-- **Daily calorie tracking** to stay within personal limits
+## 1. System Components
 
-The goal is to make healthy eating easier by giving instant, reliable feedback on everyday food products.
+### A. FastAPI Application Layer (`api/main.py`)
+- **Route Registration:** 17 structured REST endpoints with Pydantic request validation and response models.
+- **Security Middleware:** Strict CORS origin resolution with dynamic LAN regex support for Expo development clients (`_get_allowed_origins`).
+- **Authentication Dependency:** Injected `get_current_user` enforcing HMAC-SHA256 JWT tokens with Bearer authorization.
 
-## Problem Statement
+### B. Machine Learning & NutriScore Engine (`ml_model/`)
+- **Pipeline:** Gradient Boosting, Random Forest, SVM, and weighted ensemble classification models (`ensemble_model.pkl`).
+- **Feature Vector:** `[calories, fat, sugar, salt, protein, fiber, carbs]` (7-dimensional continuous vector).
+- **Validation:** **82.69% accuracy on held-out test dataset**.
+- **Determinism:** `predict_nutriscore()` provides deterministic class predictions (grades `A` through `E`); `predict_nutriscore_details()` outputs full class probability distributions summing to 1.0.
+- **Fail-Safe Integrity:** Missing or corrupted model artifacts raise explicit `ModelArtifactError` rather than silently degrading into heuristics.
 
-Many people buy packaged foods without fully understanding their nutritional impact:
+### C. Database & Data Persistence (`database/`)
+- **Engine:** SQLite for local execution, PostgreSQL for containerized cloud deployment (`render.yaml`).
+- **Migration System:** Automated runtime schema migration (`init_db.py`) adds missing columns to SQLite/PostgreSQL tables without breaking active databases.
+- **Portability:** Path-independent database resolution in `orm.py` resolving relative SQLite database paths across any execution CWD.
+- **Scan ≠ Eat Isolation:** Scans write strictly to `scan_history`; food intake writes strictly to `daily_food_log`.
 
-- Nutrition labels can be hard to interpret
-- Harmful additives are hidden in ingredient lists
-- Excess sugar, salt, or fats go unnoticed
-- There is no quick way to decide if a product is healthy
+### D. Nutrition Analysis & Decision Engines (`services/`)
+- **Standardized Salt Threshold:** Standardized across `food_health_score.py` and `decision_explainer.py` at `1.5g / 100g`.
+- **Diet-Aware Penalties:** Configurable multipliers for low-sodium, diabetic, clean eating, and high-protein diet goals.
+- **Ingredient & Additive Parser:** Token-boundary regex matching (`\b`) prevents substring false positives (e.g., "msg" inside "message") and eliminates redundant flag reporting.
+- **Recommendations Engine:** Infers food categories (`infer_food_category`) and calculates deterministic % differences in sugar, salt, fat, and calories.
 
-FoodScanner AI solves these problems by automatically analyzing food products and providing easy-to-understand advice.
+### E. OpenFoodFacts Client (`services/openfoodfacts_service.py`)
+- Structured barcode lookup against OpenFoodFacts API with timeout and network error handling.
+- Automatically normalizes sodium to salt (`salt = sodium * 2.5`) and energy kJ to kcal (`kcal = kJ / 4.184`).
 
-## Key Features
+### F. OCR Processing (`api/main.py`)
+- Dual-engine OCR pipeline with EasyOCR preference and Tesseract fallback.
+- Auto-rotates, upscales, and binarizes label images before applying regular expression pattern extractors for nutritional rows.
 
-### Barcode Scanning
-Users scan a product barcode to instantly retrieve its nutrition information.
+---
 
-### Nutrition Analysis
-Analyzes key nutrients:
-- Calories
-- Sugar
-- Salt (sodium)
-- Fat
-- Protein
-- Fiber
-- Carbohydrates
+## 2. API Endpoints Reference
 
-### Ingredient Risk Detection
-Flags potentially problematic ingredients in the product.
+### Public Endpoints
+- `GET /health` — Service heartbeat verification.
+- `GET /docs` — Interactive OpenAPI Swagger UI.
+- `GET /openapi.json` — Raw OpenAPI schema.
+- `POST /register` — Account registration with email, password, and calorie budget.
+- `POST /login` — User authentication returning JWT Bearer token.
 
-### Additive Detection
-Detects and warns about risky food additives (e.g., E621, E211, etc.).
+### Protected Endpoints (Bearer JWT Required)
+- `POST /scan` — Barcode scanning, health scoring, and healthier alternatives (Scan ≠ Eat).
+- `POST /analyze` — Ad-hoc nutrition profile scoring.
+- `POST /ocr` — Nutrition label image OCR analysis.
+- `POST /food-log` — Explicit food consumption logging.
+- `GET /today` — Today's consumed calories and meal log.
+- `GET /history` — User scan history.
+- `DELETE /history/{id}` — Delete scan history record.
+- `GET /stats` — User scan counts and health score averages.
+- `GET /user/profile` — User profile, body metrics, and diet preferences.
+- `PUT /user/profile` — Update user profile and diet settings.
+- `GET /report/daily` — Daily intake summary.
+- `GET /report/weekly` — 7-day trend analysis and score metrics.
+- `GET /report/goal` — Calorie goal tracking.
+- `POST /compare` — Head-to-head product nutrition comparison.
+- `GET /search` — Fuzzy product search.
+- `GET /product/{barcode}` — Database product lookup.
+- `GET /explain/{barcode}` — Explainable scoring factor breakdown.
 
-### Health Score Calculation
-Generates a health score that reflects how healthy a product is based on nutrition and additives.
+---
 
-### Explainable Decisions
-Shows clear reasons why a product is marked SAFE, MODERATE, or AVOID.
+## 3. Testing & Verification
 
-### Search System
-Allows users to manually search for products by name.
+Run the full 42-test suite from either the project root or the `foodscanner-ai` folder:
 
-### Indian Dataset Support
-Includes a local dataset of Indian packaged foods for products not found in the global database.
+```bash
+# From repository root:
+.\foodscanner-ai\.venv\Scripts\python.exe -m pytest foodscanner-ai/tests -v
 
-### Daily Calorie Tracking
-Tracks how many calories a user has consumed today and compares it to their daily limit.
-
-### Scan History
-Stores and allows users to view previously scanned products.
-
-## System Architecture
-
-```
-┌─────────────────┐
-│   FastAPI      │   ← Handles API endpoints (/scan, /search, /history, /today)
-│   Backend      │
-└─────────────────┘
-        │
-        ▼
-┌─────────────────┐
-│  Service Layer │   ← Business logic for product analysis,
-│                │      nutrition scoring, ingredient/additive checks
-└─────────────────┘
-        │
-        ▼
-┌─────────────────┐
-│  SQLAlchemy    │   ← ORM for database interactions
-│      ORM       │
-└─────────────────┘
-        │
-        ▼
-┌─────────────────┐
-│  PostgreSQL    │   ← Stores products, nutrition, scan history,
-│   Database     │      users, and daily food logs
-└─────────────────┘
-        │
-        ▼
-┌─────────────────┐
-│ OpenFoodFacts  │   ← External API to fetch product data
-│      API       │
-└─────────────────┘
+# From foodscanner-ai:
+pytest tests -v
 ```
 
-## Technology Stack
-
-### Backend
-- **Python** – Core programming language
-- **FastAPI** – Modern, fast web framework for APIs
-
-### Database
-- **PostgreSQL** – Reliable relational database
-
-### ORM
-- **SQLAlchemy** – Python ORM for database operations
-
-### Data Processing
-- **Pandas** – Data manipulation and analysis
-
-### Machine Learning
-- **Scikit-learn** – Predicts NutriScore when missing from product data
-
-### External APIs
-- **OpenFoodFacts** – Source of product nutrition and ingredient data
-
-## Database Design
-
-The system uses the following main tables:
-
-- **products** – Stores product details (barcode, name, brand, ingredients, additives)
-- **nutrition** – Stores nutrition values per product (calories, sugar, salt, fat, etc.)
-- **scan_history** – Records each barcode scan by a user
-- **daily_food_log** – Tracks calories consumed per day
-- **users** – Stores user profiles and daily calorie limits
-
-## API Endpoints
-
-### POST /scan
-Scan a product barcode and receive a full analysis including health score, decision, reasons, and daily intake.
-
-### GET /search
-Search for products by name (supports fuzzy matching).
-
-### GET /history
-View the user’s recent scan history.
-
-### GET /today
-Check how many calories the user has consumed today and their remaining budget.
-
-## Example API Response
-
-```json
-{
-  "product": {
-    "name": "Maggi Noodles",
-    "nutrition": {
-      "calories": 430,
-      "fat": 15,
-      "sugar": 4,
-      "salt": 3.5,
-      "protein": 9,
-      "fiber": 2,
-      "carbs": 65
-    },
-    "nutriscore": "c"
-  },
-  "analysis": {
-    "ingredient_analysis": { ... },
-    "additive_analysis": { ... },
-    "health_score": 42
-  },
-  "decision": {
-    "final_decision": "MODERATE",
-    "reasons": [
-      "high sodium level",
-      "contains risky additives: E621"
-    ]
-  },
-  "daily_intake": {
-    "consumed": 1200,
-    "remaining": 800
-  }
-}
-```
-
-## Future Improvements
-
-- **Mobile App with Camera Barcode Scanning**
-- **Personalized Diet Profiles**
-- **Healthier Product Recommendations**
-- **Cloud Deployment for Scalability**
-
-## Authors
-
-FoodScanner AI is a college project focused on intelligent food analysis and helping users make healthier choices.
+**Results:** 42 passed, 0 failed, 0 errors.
