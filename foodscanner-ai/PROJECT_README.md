@@ -38,6 +38,23 @@ PRAMAAN AI is the core intelligence engine powering food health scoring, NutriSc
 - Dual-engine OCR pipeline with EasyOCR preference and Tesseract fallback.
 - Auto-rotates, upscales, and binarizes label images before applying regular expression pattern extractors for nutritional rows.
 
+### G. Health Claim Verification Engine (`services/claim_verification.py`)
+- **Deterministic FSSAI Compliance:** Verifies front-of-pack and marketing claims against declared product nutrition, ingredients, and official statutory criteria from the *Food Safety and Standards (Advertising and Claims) Regulations, 2018* (Schedule I, Schedule II, and Regulation 4(5)).
+- **Versioned Regulatory Rules:** Rules are defined as declarative data configurations (`ClaimRule`, `RegulatorySource`) in `REGULATORY_RULES`, completely separating regulatory criteria and source citations from verification execution logic.
+- **Normalization Pipeline:** Normalizes casing, whitespace, hyphens, and lexical variations ("sugar-free", "0 sugar", "no-added-sugar", "rich in protein") into canonical claim keys.
+- **Evidence-Based Auditing:** Outputs structured numerical evidence, thresholds, comparison operators, data quality flags, and regulatory source references. Never guesses or converts missing data into verified claims.
+- **Verification Statuses:**
+  - `SUPPORTED`: Product data satisfies official regulatory threshold.
+  - `NOT_SUPPORTED`: Product data explicitly violates regulatory threshold.
+  - `NEEDS_REVIEW`: Claim is unmapped, ambiguous, or requires legal interpretation.
+  - `INSUFFICIENT_DATA`: Required nutrient or ingredient declaration is missing.
+- **Key Distinctions:**
+  - **Health Score:** Continuous numerical score (0-100) evaluating global nutritional balance (calories, sugar, salt, fat, protein, fiber).
+  - **Health Claim Verification:** Deterministic legal/regulatory assessment of specific packaged marketing statements against FSSAI statutory limits.
+  - **Ingredient Analysis:** Qualitative NLP/token-based scan identifying additives, preservatives, artificial sweeteners, and allergens.
+- **Regulatory Rule Maintenance:** Future FSSAI notifications can be accommodated simply by appending or modifying entries in `REGULATORY_RULES` with updated version strings and effective dates without altering verification code.
+- **Statutory Disclaimer:** *The system provides a rule-based assessment of product claims based on available product data and referenced regulatory criteria. It is not a legal certification.*
+
 ---
 
 ## 2. API Endpoints Reference
@@ -50,7 +67,8 @@ PRAMAAN AI is the core intelligence engine powering food health scoring, NutriSc
 - `POST /login` — User authentication returning JWT Bearer token.
 
 ### Protected Endpoints (Bearer JWT Required)
-- `POST /scan` — Barcode scanning, health scoring, and healthier alternatives (Scan ≠ Eat).
+- `POST /verify-claims` — Deterministic FSSAI health claim verification against product data / database barcode.
+- `POST /scan` — Barcode scanning, health scoring, healthier alternatives, and optional additive claim verification (Scan ≠ Eat).
 - `POST /analyze` — Ad-hoc nutrition profile scoring.
 - `POST /ocr` — Nutrition label image OCR analysis.
 - `POST /food-log` — Explicit food consumption logging.
@@ -72,7 +90,7 @@ PRAMAAN AI is the core intelligence engine powering food health scoring, NutriSc
 
 ## 3. Testing & Verification
 
-Run the full 42-test suite from either the project root or the `foodscanner-ai` folder:
+Run the full 57-test backend suite from either the project root or the `foodscanner-ai` folder:
 
 ```bash
 # From repository root:
@@ -82,4 +100,4 @@ Run the full 42-test suite from either the project root or the `foodscanner-ai` 
 pytest tests -v
 ```
 
-**Results:** 42 passed, 0 failed, 0 errors.
+**Results:** 57 passed, 0 failed, 0 errors.

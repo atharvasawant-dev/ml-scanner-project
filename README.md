@@ -1,11 +1,11 @@
 # PRAMAAN — AI Food Scanner (ml-scanner-project)
 
-[![CI / Test Suite](https://img.shields.io/badge/Backend%20Tests-42%20Passing-brightgreen)](file:///c:/Users/student/Desktop/devside/ml-scanner-project/foodscanner-ai/tests)
+[![CI / Test Suite](https://img.shields.io/badge/Backend%20Tests-57%20Passing-brightgreen)](file:///c:/Users/student/Desktop/devside/ml-scanner-project/foodscanner-ai/tests)
 [![Mobile Tests](https://img.shields.io/badge/Mobile%20Tests-5%20Passing-brightgreen)](file:///c:/Users/student/Desktop/devside/ml-scanner-project/foodscanner-mobile/tests)
 [![Expo SDK](https://img.shields.io/badge/Expo%20SDK-54-blue)](file:///c:/Users/student/Desktop/devside/ml-scanner-project/foodscanner-mobile/package.json)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue)](file:///c:/Users/student/Desktop/devside/ml-scanner-project/foodscanner-ai/pyproject.toml)
 
-PRAMAAN is an intelligent nutrition intelligence platform designed to decode packaged foods for health-conscious consumers. By scanning barcodes or nutrition fact labels, PRAMAAN analyzes nutrients, detects risky ingredients and additives, generates explainable health scores, provides healthier product alternatives, and tracks personal food consumption.
+PRAMAAN is an intelligent nutrition intelligence platform designed to decode packaged foods for health-conscious consumers. By scanning barcodes or nutrition fact labels, PRAMAAN analyzes nutrients, detects risky ingredients and additives, generates explainable health scores, provides healthier product alternatives, deterministically verifies front-of-pack regulatory health claims against official FSSAI standards, and tracks personal food consumption.
 
 ---
 
@@ -90,6 +90,29 @@ ml-scanner-project/
 - **CORS Protection:** Wildcard `*` disabled; strict origin validation supporting localhost, Expo local development ports, and regex-matched private LAN subnets (`192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`).
 - **Endpoint Protection:** All personal, scanning, reporting, comparison, and analysis routes require authenticated JWT Bearer headers.
 
+### H. Health Claim Verification Engine (`services/claim_verification.py`)
+- **Deterministic FSSAI Compliance:** Verifies front-of-pack and marketing claims against declared product nutrition, ingredients, and official statutory criteria from the *Food Safety and Standards (Advertising and Claims) Regulations, 2018* (Schedule I, Schedule II, and Regulation 4(5)).
+- **Versioned Regulatory Rules:** Rules are defined as declarative data configurations (`ClaimRule`, `RegulatorySource`) in `REGULATORY_RULES`, completely separating regulatory criteria and source citations from verification execution logic.
+- **Supported Regulatory Claims:**
+  1. **No Added Sugar:** Verified against ingredient declaration for absence of mono/disaccharides, syrups, honey, or fruit juice concentrates (FSSAI Reg 4(5) & Schedule I).
+  2. **Sugar Free:** Total sugars $\le 0.5\text{ g} / 100\text{g}$ (solids) or $100\text{ml}$ (liquids) (FSSAI Schedule I).
+  3. **Low Sodium:** Sodium $\le 0.12\text{ g} / 100\text{g}$ ($\le 120\text{ mg}$), or equivalent salt $\le 0.3\text{ g} / 100\text{g}$ (FSSAI Schedule I).
+  4. **High Protein:** Protein $\ge 20\%$ of adult 54g RDA ($\ge 10.8\text{ g} / 100\text{g}$) (FSSAI Schedule I).
+  5. **High Fibre:** Dietary fibre $\ge 6.0\text{ g} / 100\text{g}$ (FSSAI Schedule I).
+  6. **Low Fat:** Total fat $\le 3.0\text{ g} / 100\text{g}$ for solid foods (FSSAI Schedule I).
+  7. **Zero Trans Fat:** Trans fatty acids $< 0.2\text{ g} / 100\text{g}$ and saturated fat $\le 1.5\text{ g} / 100\text{g}$ if declared (FSSAI Schedule I).
+- **Verification Statuses:**
+  - `SUPPORTED`: Available product data satisfies verified rule criteria.
+  - `NOT_SUPPORTED`: Available product data conflicts with rule criteria.
+  - `NEEDS_REVIEW`: Unrecognized claim or requires specialized manual inspection.
+  - `INSUFFICIENT_DATA`: Required nutrient or ingredient declaration is missing (never guessed).
+- **Core Domain Distinctions:**
+  - **Health Score:** Continuous numerical algorithm (0-100) evaluating global nutritional profile.
+  - **Health Claim Verification:** Deterministic statutory check evaluating whether marketing claims comply with FSSAI regulations.
+  - **Ingredient Analysis:** Qualitative token scanning identifying additives, allergens, and preservatives.
+- **Future Rule Maintenance:** Regulatory rule metadata is stored in `REGULATORY_RULES` with version and effective dates; new FSSAI notifications can be updated without modifying verification engine logic.
+- **Statutory Disclaimer:** *"The system provides a rule-based assessment of product claims based on available product data and referenced regulatory criteria. It is not a legal certification."*
+
 ---
 
 ## 4. API Specification
@@ -101,7 +124,8 @@ ml-scanner-project/
 | `GET` | `/openapi.json` | Public | OpenAPI 3.0 specification |
 | `POST` | `/register` | Public | Register new user account |
 | `POST` | `/login` | Public | Authenticate user and receive JWT |
-| `POST` | `/scan` | Authenticated | Barcode lookup, health scoring, recommendations (Scan ≠ Eat) |
+| `POST` | `/verify-claims` | Authenticated | Deterministic FSSAI health claim verification against product data / database barcode |
+| `POST` | `/scan` | Authenticated | Barcode lookup, health scoring, recommendations, and optional claim verification (Scan ≠ Eat) |
 | `POST` | `/analyze` | Authenticated | Analyze manually entered nutrition facts |
 | `POST` | `/ocr` | Authenticated | OCR nutrition table parser via EasyOCR/Tesseract |
 | `POST` | `/food-log` | Authenticated | Explicitly log food consumption to diary |
@@ -182,7 +206,7 @@ The test suite can be run from **either** the repository root or the `foodscanne
 cd foodscanner-ai
 python -m pytest tests -v
 ```
-**Results:** **42 passed**, 0 failed, 0 errors.
+**Results:** **57 passed**, 0 failed, 0 errors.
 
 ### Mobile Test Suite (Node.js Native Test Runner)
 ```bash
@@ -208,8 +232,8 @@ node --test tests/
 
 ---
 
-## 8. Current Limitations (Phase 1 State)
-1. **Health Claim Verification:** Automated checking of front-of-pack marketing claims (e.g. "Zero Sugar", "High Protein") against nutritional data is not yet implemented (scheduled for Phase 2).
-2. **OCR 2.0:** OCR parses nutrition tables; multi-label packaging bounding boxes and FSSAI license OCR are not yet supported (scheduled for Phase 2).
-3. **Mobile Compare UI:** While `/compare` and recommendation engines exist in the backend, the mobile client does not yet include a dedicated comparison screen (scheduled for Phase 2).
+## 8. Current Limitations (Phase 2 State)
+1. **Health Claim Verification Scope:** Phase 2 Batch 5 supports 7 core FSSAI claims ("No Added Sugar", "Sugar Free", "Low Sodium", "High Protein", "High Fibre", "Low Fat", "Zero Trans Fat"). Expansion to vitamin/mineral micronutrient claims and Front-of-Pack mobile verification badges are scheduled for subsequent iterations.
+2. **OCR 2.0:** OCR parses nutrition tables; multi-label packaging bounding boxes and FSSAI license OCR are not yet supported (scheduled for subsequent Phase 2 batches).
+3. **Mobile Compare UI:** While `/compare` and recommendation engines exist in the backend, the mobile client does not yet include a dedicated comparison screen (scheduled for subsequent Phase 2 batches).
 4. **Physical Device Validation:** The mobile app has been validated via Expo dev server, LAN configuration, and automated unit tests. Physical iPhone field testing requires an in-person device on the local network.

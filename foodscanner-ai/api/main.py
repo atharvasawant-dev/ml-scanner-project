@@ -10,6 +10,7 @@ import os
 import random
 import re
 import time
+from typing import Any
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, Field
@@ -33,6 +34,7 @@ from services.additive_analyzer import analyze_additives
 from services.food_health_score import compute_food_health_score
 from services.final_decision_engine import compute_final_decision
 from services.decision_explainer import build_decision_reasons
+from services.claim_verification import verify_claims
 
 import pandas as pd
 from rapidfuzz import fuzz
@@ -70,6 +72,15 @@ app.add_middleware(
 
 class ScanRequest(BaseModel):
     barcode: str = Field(..., pattern=r"^\d{8,14}$")
+    product_name: str | None = None
+    claims: list[str] | None = None
+
+
+class VerifyClaimsRequest(BaseModel):
+    claims: list[str] = Field(..., description="List of health or nutritional claims to verify")
+    nutrition: dict[str, Any] | None = None
+    ingredients: Any | None = None
+    barcode: str | None = None
     product_name: str | None = None
 
 
@@ -853,7 +864,7 @@ def scan(
     else:
         recommendations = []
 
-    return {
+    scan_response = {
         "product": {
             "name": result.get("product_name"),
             "nutrition": nutrition,
@@ -875,6 +886,49 @@ def scan(
             "remaining": result.get("remaining_calories"),
         },
     }
+    if req.claims:
+        scan_response["claim_verification"] = verify_claims(
+            claims=req.claims,
+            nutrition=nutrition,
+            ingredients=result.get("ingredients"),
+        )
+    return scan_response
+
+
+@app.post("/verify-claims", tags=["claims"])
+def verify_claims_endpoint(
+    req: VerifyClaimsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    if not isinstance(req.claims, list):
+        raise HTTPException(status_code=400, detail="claims must be a list of strings")
+
+    nutrition = dict(req.nutrition) if isinstance(req.nutrition, dict) else {}
+    ingredients = req.ingredients
+
+    # If barcode provided and nutrition or ingredients are missing, enrich from DB
+    if req.barcode:
+        bcode = str(req.barcode).strip()
+        if bcode:
+            product = db_service.get_product_by_barcode(db, bcode)
+            if product:
+                db_nutrition = {
+                    "calories": product.get("calories"),
+                    "fat": product.get("fat"),
+                    "sugar": product.get("sugar"),
+                    "salt": product.get("salt"),
+                    "protein": product.get("protein"),
+                    "fiber": product.get("fiber"),
+                    "carbs": product.get("carbs"),
+                }
+                for k, v in db_nutrition.items():
+                    if k not in nutrition and v is not None:
+                        nutrition[k] = v
+                if ingredients is None:
+                    ingredients = product.get("ingredients")
+
+    return verify_claims(claims=req.claims, nutrition=nutrition, ingredients=ingredients)
 
 
 @app.post("/compare", tags=["products"])
