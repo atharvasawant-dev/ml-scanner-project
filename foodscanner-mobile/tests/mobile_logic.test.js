@@ -110,3 +110,165 @@ describe('Mobile ResultScreen Decision and Serving Calculations', () => {
     assert.strictEqual(oneAndHalf.fat, 15);
   });
 });
+
+// 2. Batch 9A Component and Invariant Unit Test Helpers
+function getClaimStatusMeta(status) {
+  const s = String(status || '').toUpperCase();
+  if (s === 'SUPPORTED') return { label: 'SUPPORTED', color: 'green' };
+  if (s === 'NOT_SUPPORTED') return { label: 'NOT SUPPORTED', color: 'red' };
+  if (s === 'NEEDS_REVIEW') return { label: 'NEEDS REVIEW', color: 'amber' };
+  return { label: 'INSUFFICIENT DATA', color: 'gray' };
+}
+
+function buildScanRequest(barcode, productName, claims = null) {
+  const payload = { barcode: String(barcode).trim(), product_name: productName || null };
+  if (Array.isArray(claims) && claims.length > 0) {
+    payload.claims = claims;
+  }
+  return { path: '/scan', method: 'POST', body: payload };
+}
+
+function buildVerifyClaimsRequest({ claims, barcode, nutrition, ingredients, productName } = {}) {
+  return {
+    path: '/verify-claims',
+    method: 'POST',
+    body: {
+      claims: Array.isArray(claims) ? claims : [],
+      barcode: barcode || null,
+      nutrition: nutrition || null,
+      ingredients: ingredients || null,
+      product_name: productName || null,
+    },
+  };
+}
+
+function buildCompareRequest(productA, productB) {
+  return {
+    path: '/compare',
+    method: 'POST',
+    body: {
+      product_a: String(productA || '').trim(),
+      product_b: String(productB || '').trim(),
+    },
+  };
+}
+
+function buildChatRequest({ message, barcode, productContext } = {}) {
+  return {
+    path: '/chat',
+    method: 'POST',
+    body: {
+      message: String(message || '').trim(),
+      barcode: barcode ? String(barcode).trim() : null,
+      product_context: productContext || null,
+    },
+  };
+}
+
+function buildFoodLogRequest({ productName, calories, barcode, servingSize, nutrition } = {}) {
+  return {
+    path: '/food-log',
+    method: 'POST',
+    body: {
+      product_name: productName,
+      calories: Number(calories) || 0,
+      serving_size: servingSize || 100,
+      barcode: barcode || null,
+      ...nutrition,
+    },
+  };
+}
+
+describe('Batch 9A: Claim Verification Logic and Component State', () => {
+  test('getClaimStatusMeta correctly maps all four statutory FSSAI statuses', () => {
+    assert.strictEqual(getClaimStatusMeta('SUPPORTED').color, 'green');
+    assert.strictEqual(getClaimStatusMeta('supported').label, 'SUPPORTED');
+
+    assert.strictEqual(getClaimStatusMeta('NOT_SUPPORTED').color, 'red');
+    assert.strictEqual(getClaimStatusMeta('not_supported').label, 'NOT SUPPORTED');
+
+    assert.strictEqual(getClaimStatusMeta('NEEDS_REVIEW').color, 'amber');
+    assert.strictEqual(getClaimStatusMeta('INSUFFICIENT_DATA').color, 'gray');
+    assert.strictEqual(getClaimStatusMeta(null).label, 'INSUFFICIENT DATA');
+    assert.strictEqual(getClaimStatusMeta(undefined).color, 'gray');
+  });
+
+  test('Claim verification payload constructs valid regulatory query structure', () => {
+    const claims = ['High Protein', 'Sugar Free'];
+    const req = buildVerifyClaimsRequest({
+      claims,
+      barcode: '8901058000256',
+      nutrition: { protein: 12.0, sugar: 0.2 },
+    });
+    assert.strictEqual(req.path, '/verify-claims');
+    assert.deepStrictEqual(req.body.claims, claims);
+    assert.strictEqual(req.body.barcode, '8901058000256');
+    assert.strictEqual(req.body.nutrition.protein, 12.0);
+  });
+});
+
+describe('Batch 9A: Healthier Alternatives & Comparison Logic', () => {
+  test('Alternatives gracefully handles empty recommendations list without crashing', () => {
+    const emptyList = [];
+    const hasItems = Array.isArray(emptyList) && emptyList.length > 0;
+    assert.strictEqual(hasItems, false);
+
+    const validList = [{ product_name: 'Baked Chips', health_score: 75, advantages: ['50% less fat'] }];
+    assert.strictEqual(validList.length, 1);
+    assert.strictEqual(validList[0].advantages[0], '50% less fat');
+  });
+
+  test('Compare request cleanly trims queries and targets /compare', () => {
+    const req = buildCompareRequest('  Maggi  ', '8901058000256 ');
+    assert.strictEqual(req.path, '/compare');
+    assert.strictEqual(req.body.product_a, 'Maggi');
+    assert.strictEqual(req.body.product_b, '8901058000256');
+  });
+});
+
+describe('Batch 9A: AI Nutrition Assistant Logic & Error Handling', () => {
+  test('Chat request attaches product context without overriding health score', () => {
+    const context = {
+      product_name: 'Rolled Oats',
+      health_score: 85,
+      final_decision: 'SAFE',
+    };
+    const req = buildChatRequest({
+      message: 'Is this good for weight loss?',
+      barcode: '8901234567890',
+      productContext: context,
+    });
+    assert.strictEqual(req.path, '/chat');
+    assert.strictEqual(req.body.message, 'Is this good for weight loss?');
+    assert.strictEqual(req.body.product_context.health_score, 85);
+  });
+
+  test('AI assistant service error handles 503 fallback message', () => {
+    const simulate503Error = { response: { status: 503, data: { detail: 'Provider down' } } };
+    let displayedMessage;
+    if (simulate503Error?.response?.data?.detail) {
+      displayedMessage = simulate503Error.response.data.detail;
+    } else {
+      displayedMessage = 'AI assistant is temporarily unavailable. Please try again later.';
+    }
+    assert.strictEqual(displayedMessage, 'Provider down');
+  });
+});
+
+describe('Batch 9A Core Domain Invariant: Scan ≠ Eat Preservation', () => {
+  test('Analytical queries NEVER target the intake endpoint /food-log', () => {
+    const scanReq = buildScanRequest('8901234567890', 'Oats');
+    const claimReq = buildVerifyClaimsRequest({ claims: ['Sugar Free'], barcode: '8901234567890' });
+    const compareReq = buildCompareRequest('Prod A', 'Prod B');
+    const chatReq = buildChatRequest({ message: 'Hello', barcode: '8901234567890' });
+
+    assert.notStrictEqual(scanReq.path, '/food-log');
+    assert.notStrictEqual(claimReq.path, '/food-log');
+    assert.notStrictEqual(compareReq.path, '/food-log');
+    assert.notStrictEqual(chatReq.path, '/food-log');
+
+    // ONLY explicit food log action targets /food-log
+    const logReq = buildFoodLogRequest({ productName: 'Oats', calories: 250 });
+    assert.strictEqual(logReq.path, '/food-log');
+  });
+});

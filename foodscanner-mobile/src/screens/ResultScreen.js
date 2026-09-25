@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Alert } from 'react-native';
 
-import { explainProduct, logFoodItem } from '../services/api';
+import { explainProduct, logFoodItem, scanProduct } from '../services/api';
+import ClaimVerificationCard from '../components/ClaimVerificationCard';
+import HealthierAlternativesCard from '../components/HealthierAlternativesCard';
+import ComparisonCard from '../components/ComparisonCard';
+import AIChatSection from '../components/AIChatSection';
 
 const C = {
   cream: '#F5F2EC',
@@ -131,6 +135,21 @@ export default function ResultScreen({ route, navigation }) {
 
   const decisionMeta = useMemo(() => _decisionMeta(decision), [decision]);
   const ingredientRisk = useMemo(() => _riskBadge(ingredientAnalysis?.risk_level), [ingredientAnalysis]);
+
+  const handleSelectAlternative = async (alt) => {
+    const altBarcode = alt?.barcode;
+    const altName = alt?.product_name || alt?.name;
+    if (!altBarcode && !altName) return;
+    try {
+      const res = await scanProduct(altBarcode || '00000000', altBarcode ? null : altName);
+      navigation.push('Result', { result: res, timestamp: Date.now() });
+    } catch (_e) {
+      Alert.alert(
+        'Alternative Selected',
+        `Selected: ${altName || 'Product'}. Use manual search on the Scan screen to view full details.`
+      );
+    }
+  };
 
   const handleLogToDiary = async () => {
     if (loggingFood || foodLogged) return;
@@ -386,6 +405,41 @@ export default function ResultScreen({ route, navigation }) {
           </>
         ) : null}
       </View>
+
+      <ClaimVerificationCard
+        initialVerification={result?.claim_verification}
+        barcode={barcode}
+        nutrition={nutrition}
+        ingredients={result?.product?.ingredients || result?.ingredients}
+        productName={productName}
+      />
+
+      <HealthierAlternativesCard
+        initialRecommendations={result?.recommendations || []}
+        barcode={barcode}
+        productName={productName}
+        nutrition={nutrition}
+        onSelectAlternative={handleSelectAlternative}
+      />
+
+      <ComparisonCard
+        currentProduct={{
+          name: productName,
+          brand: brand,
+          barcode: barcode,
+          nutrition: nutrition,
+          health_score: healthScore,
+          nutriscore: result?.product?.nutriscore || result?.nutriscore,
+        }}
+      />
+
+      <AIChatSection
+        barcode={barcode}
+        productName={productName}
+        nutrition={nutrition}
+        healthScore={healthScore}
+        decision={decision}
+      />
 
       <TouchableOpacity
         style={[styles.diaryBtn, foodLogged ? styles.diaryBtnSuccess : null]}

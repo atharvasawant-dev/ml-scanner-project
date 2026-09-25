@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 
-import { getDailyReport, getWeeklyReport } from '../services/api';
+import { getDailyReport, getWeeklyReport, getGoalReport } from '../services/api';
 import { resetToLogin } from '../utils/navigationRef';
 
 const C = {
@@ -39,14 +39,20 @@ export default function ReportScreen() {
   const [loading, setLoading] = useState(true);
   const [daily, setDaily] = useState(null);
   const [weekly, setWeekly] = useState(null);
+  const [goal, setGoal] = useState(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        const [d, w] = await Promise.all([getDailyReport(), getWeeklyReport()]);
+        const [d, w, g] = await Promise.all([
+          getDailyReport(),
+          getWeeklyReport(),
+          getGoalReport().catch(() => null),
+        ]);
         setDaily(d);
         setWeekly(w);
+        setGoal(g);
       } catch (e) {
         if (e?.response?.status === 401) {
           resetToLogin();
@@ -122,6 +128,18 @@ export default function ReportScreen() {
         </ScrollView>
         {weekly?.week_summary ? <Text style={styles.meta}>Trend: {weekly.week_summary.trend}</Text> : null}
       </View>
+
+      {goal && (goal.goal_type || goal.status) ? (
+        <View style={styles.card}>
+          <Text style={styles.title}>🎯 Health Goal Progress</Text>
+          <Text style={styles.meta}>Goal: {goal.goal_type || 'Healthy Eating'}</Text>
+          {goal.streak_days != null ? <Text style={styles.meta}>Active Streak: {goal.streak_days} days</Text> : null}
+          {goal.adherence_rate_pct != null ? (
+            <Text style={styles.meta}>Adherence: {Math.round(goal.adherence_rate_pct)}%</Text>
+          ) : null}
+          {goal.summary ? <Text style={styles.suggestion}>→ {goal.summary}</Text> : null}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
