@@ -17,6 +17,7 @@ This document tracks the verified completion status of development phases and ba
 | **Phase 2: Batch 6 — OCR 2.0 & Structured Labels** | **COMPLETE** | Dual-engine OCR extraction with regex patterns, table structure parsing, and integration. 77 backend tests passing. |
 | **Phase 2: Batch 7 — Product Intelligence & Demo** | **COMPLETE** | Product comparisons, healthier alternatives, score explanation, personalization, food diary reports. 95 backend tests passing. Commit: `0775232`. |
 | **Phase 3: Batch 8 — AI Nutrition Assistant (RAG)** | **COMPLETE** | Grounded nutrition assistant with TF-IDF + token similarity retriever, knowledge base (WHO/ICMR/FSSAI), model abstraction (Mock, Gemini, OpenAI), `POST /chat` endpoint. 117 backend tests passing. Commit: `4eec74c`. |
+| **Phase 2 / Frontend: Batch 9 — Mobile Integration & Neo-Brutalist Redesign** | **COMPLETE** | Full integration of product intelligence into React Native frontend (`ClaimVerificationCard`, `ComparisonCard`, `HealthierAlternativesCard`, `AIChatSection`), followed by comprehensive Neo-Brutalist UI transformation across all 8 screens and desktop web phone framing. Verified by 15 mobile unit tests in `mobile_logic.test.js`. Commits: `eaeb34e`, `9704af6`. |
 | **Demo Readiness Gate & Configuration Validation** | **COMPLETE** | Centralized configuration loader (`services/config.py`), startup configuration validation gate (fails fast if `SECRET_KEY` missing), 100% verified on real running Uvicorn server, full HTTP API smoke tests, Scan ≠ Eat invariant verified. 143 backend tests passing. |
 | **Phase 4 — Computer Vision** | **NOT STARTED** | No YOLO / Ultralytics object detection models. |
 | **Phase 5 — Production DevOps** | **PARTIALLY COMPLETE** | Basic Dockerfile and Render manifest exist. Missing: Redis, Nginx, Prometheus, Grafana, CI/CD pipeline. |
@@ -24,49 +25,35 @@ This document tracks the verified completion status of development phases and ba
 
 ---
 
-## Batch 4 Validation Results
+## Test Suite Baseline
 
-### 1. Test Suite Summary
-- **Backend Tests (`foodscanner-ai/tests/`):**
-  - `test_batch1_stabilization.py`: 9 tests passed
-  - `test_batch2_stabilization.py`: 18 tests passed
-  - `test_batch3_stabilization.py`: 8 tests passed
-  - `test_batch4_validation.py`: 7 tests passed
-  - `test_batch5_claim_verification.py`: 15 tests passed
-  - **Total Backend:** **57 passed**, 0 failed, 0 errors.
-- **Mobile Tests (`foodscanner-mobile/tests/`):**
-  - `mobile_logic.test.js`: 5 tests passed across 2 suites.
-  - **Total Mobile:** **5 passed**, 0 failed, 0 errors.
-- **Combined Test Baseline:** **62 passed**, 0 failed.
+- **Backend Tests (`foodscanner-ai/tests/`):** **143 passed**, 0 failed, 0 errors.
+- **Mobile Tests (`foodscanner-mobile/tests/`):** **15 passed**, 0 failed, 0 errors.
+- **Combined Test Baseline:** **158 passed**, 0 failed.
 
 ---
 
-## Batch 5 — Health Claim Verification Engine Results
+## Batch 9 — Mobile Integration & Neo-Brutalist Redesign Results
 
-### 1. Statutory Grounding & Separation of Concerns
-- Standardized strictly on *Food Safety and Standards (Advertising and Claims) Regulations, 2018* (Schedule I, Schedule II, and Regulation 4(5)) with version metadata (`2018.1`).
-- Evaluation rules (`ClaimRule`, `RegulatorySource`) are cleanly decoupled in `REGULATORY_RULES` dictionary from verification execution logic.
-- 7 target claims fully supported:
-  1. `sugar_free`: Sugars $\le 0.5\text{g} / 100\text{g}$.
-  2. `low_fat`: Fat $\le 3.0\text{g} / 100\text{g}$.
-  3. `low_sodium`: Sodium $\le 0.12\text{g} / 100\text{g}$ or salt $\le 0.3\text{g} / 100\text{g}$.
-  4. `high_fibre`: Dietary fibre $\ge 6.0\text{g} / 100\text{g}$.
-  5. `high_protein`: Protein $\ge 20\%$ of adult 54g RDA ($\ge 10.8\text{ g} / 100\text{g}$).
-  6. `zero_trans_fat`: Trans fat $< 0.2\text{g} / 100\text{g}$ and saturated fat $\le 1.5\text{g} / 100\text{g}$.
-  7. `no_added_sugar`: Regex ingredient check for absence of added mono/disaccharides, syrups, honey, or fruit juice concentrates.
-- Unknown claims return `NEEDS_REVIEW`; missing data returns `INSUFFICIENT_DATA`. Missing data is never guessed.
-- Verified Invariants:
-  - Claim verification does NOT alter the numerical health score.
-  - Claim verification and scan queries do NOT log food consumption (Scan ≠ Eat).
+### 1. Batch 9A: Product Intelligence Integration
+- Front-of-pack interactive claim badges with FSSAI statutory states (`SUPPORTED`, `NOT_SUPPORTED`, `NEEDS_REVIEW`, `INSUFFICIENT_DATA`).
+- Healthier alternatives carousel with positive nutritional deltas (e.g. less fat, lower sugar).
+- Side-by-side product comparison tool on `ResultScreen` targeting `POST /compare`.
+- Grounded AI nutrition assistant drawer targeting `POST /chat` with product and profile context.
+- Strict invariant preserved: Scan ≠ Eat (no analytical query logs intake).
+
+### 2. Batch 9B: Neo-Brutalist Redesign
+- Standardized `neoTheme` design tokens: warm cream canvas (`#FAF6EE`), crisp 2-2.5px solid black borders, hard unblurred drop shadows (`shadowRadius: 0`, `shadowOpacity: 1`), and vibrant functional accent colors.
+- Reusable Neo component suite: `NeoCard`, `NeoButton`, `NeoBadge`, `NeoInput`, `NeoProgressBar`, `NeoSectionHeader`, `NeoPill`, `NeoTab`.
+- All 8 canonical screens transformed: `LoginScreen`, `HomeScreen`, `ScanScreen`, `ResultScreen`, `ReportScreen`, `ProfileScreen`, `ManualEntryScreen`, `OCRScanScreen`.
+- Responsive desktop web container wrapping the mobile view in a sleek phone frame for web preview.
 
 ---
 
 ## Known Limitations
 
-1. **Front-of-Pack Mobile Claim Badges:** The Health Claim Verification Engine is complete and accessible via `POST /verify-claims` and additively via `POST /scan`. Displaying interactive claim verification badges on the mobile Result screen is scheduled for Phase 2 mobile UI polish.
-2. **OCR 2.0:** OCR extracts nutrition facts tables; advanced packaging bounding boxes, multi-angle stitching, and FSSAI license number verification are planned for subsequent Phase 2 batches.
-3. **Mobile Compare UI:** The `/compare` endpoint is fully functional in the backend, but the mobile app does not yet feature a dedicated side-by-side comparison screen (Phase 2 scope).
-4. **Physical Device Field Testing:** Mobile app tested via automated unit tests and Expo dev server LAN routing; physical iPhone verification requires on-premise hardware on the same local network.
+1. **OCR 2.0 Full Packaging:** Basic OCR and nutrition facts table parsing are functional; advanced packaging bounding boxes, multi-angle stitching, and FSSAI license number verification are planned for subsequent Phase 2 iterations.
+2. **Physical Device Field Testing:** Mobile app verified via automated unit tests, Expo dev server LAN routing, and desktop web phone framing; physical iPhone verification requires on-premise hardware on the same local network.
 
 ---
 
