@@ -3,19 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityInd
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 import { scanProduct } from '../services/api';
-
-const C = {
-  cream: '#F5F2EC',
-  ink: '#1A1A17',
-  sage: '#4E8C52',
-  sageLight: '#C3D9C5',
-  amberLight: '#F0D9A8',
-  redLight: '#F0C8C0',
-  border: '#DDD8CE',
-  muted: '#888179',
-  white: '#FFFFFF',
-  red: '#B83C28',
-};
+import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../theme/neoTheme';
 
 const QUICK = ['Maggi', 'Parle-G', 'Kurkure', "Lay's", 'Amul Butter'];
 
@@ -28,13 +16,13 @@ export default function ScanScreen({ navigation }) {
   const [showCamera, setShowCamera] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const productNameRef = useRef(null);
-  const [result, setResult] = useState(null);
+  const [_result, setResult] = useState(null);
 
   const mainValue = barcode;
   const setMainValue = setBarcode;
 
   const barcodePlaceholder = useMemo(() => 'Barcode number (e.g. 8901058000256)', []);
-  const namePlaceholder = useMemo(() => 'Product name for manual search (e.g. Dairy Milk)', []);
+  const namePlaceholder = useMemo(() => 'Product name (e.g. Dairy Milk, Maggi)', []);
 
   useEffect(() => {
     if (!permission) return;
@@ -107,187 +95,450 @@ export default function ScanScreen({ navigation }) {
   if (!permission) {
     return (
       <View style={styles.center}>
-        <Text>Requesting camera permission...</Text>
+        <ActivityIndicator color={NEO_COLORS.ink} size="small" />
+        <Text style={styles.permissionPrompt}>Requesting camera permission...</Text>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      <Text style={styles.title}>Check a Product</Text>
-      <Text style={styles.subtitle}>Enter barcode or product name</Text>
-
-      <View style={styles.card}>
-        <TouchableOpacity
-          style={styles.cameraToggle}
-          onPress={async () => {
-            if (permission?.granted) {
-              setScanned(false);
-              setShowCamera(true);
-              return;
-            }
-
-            if (permission?.canAskAgain) {
-              const p = await requestPermission();
-              if (p?.granted) {
-                setScanned(false);
-                setShowCamera(true);
-              }
-              return;
-            }
-
-            Alert.alert('Camera permission required', 'Camera permission required');
-          }}
-          disabled={loading}
-        >
-          <Text style={styles.cameraToggleText}>📷 Scan Barcode</Text>
-        </TouchableOpacity>
-
-        {!permission?.granted && showCamera ? (
-          <Text style={styles.permissionText}>Camera permission required</Text>
-        ) : null}
-
-        {showCamera && permission?.granted ? (
-          <View style={styles.cameraWrap}>
-            <CameraView
-              style={StyleSheet.absoluteFill}
-              barcodeScannerSettings={{
-                barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'],
-              }}
-              onBarcodeScanned={scanned ? undefined : onBarcodeScanned}
-            />
-            <View style={styles.cameraOverlay}>
-              <Text style={styles.cameraHint}>Point your camera at the barcode</Text>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => {
-                  setShowCamera(false);
-                  setScanned(false);
-                }}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
+      {/* Screen Header */}
+      <View style={styles.headerRow}>
+        <View>
+          <View style={styles.headerTag}>
+            <Text style={styles.headerTagText}>PRODUCT SCANNER</Text>
           </View>
-        ) : null}
+          <Text style={styles.title}>CHECK A PRODUCT</Text>
+        </View>
+      </View>
+      <Text style={styles.subtitle}>Scan packaging barcode or query by brand / product name</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder={barcodePlaceholder}
-          placeholderTextColor={C.muted}
-          value={mainValue}
-          onChangeText={setMainValue}
-          keyboardType="numeric"
-        />
-
-        {notFound ? (
-          <Text style={styles.notFoundText}>Product not found. Try typing the product name below 👇</Text>
-        ) : null}
-
-        {notFound ? (
-          <TouchableOpacity
-            style={styles.manualBtn}
-            onPress={() => navigation.navigate('ManualEntry', { productName: productName.trim() || '' })}
-            disabled={loading}
-          >
-            <Text style={styles.manualBtnText}>Enter Nutrition Manually</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        <TextInput
-          ref={productNameRef}
-          style={[styles.input, { marginTop: 12 }, notFound ? styles.inputNotFound : null]}
-          placeholder={namePlaceholder}
-          placeholderTextColor={C.muted}
-          value={productName}
-          onChangeText={(t) => {
-            setProductName(t);
-            if (notFound) setNotFound(false);
-          }}
-        />
-
-        <View style={styles.chipsRow}>
-          {QUICK.map((q) => (
-            <TouchableOpacity
-              key={q}
-              style={styles.chip}
-              onPress={() => {
-                setBarcode('');
-                setProductName(q);
-              }}
-              disabled={loading}
-            >
-              <Text style={styles.chipText}>{q}</Text>
-            </TouchableOpacity>
-          ))}
+      {/* Main Scanner Card */}
+      <View style={[styles.mainCard, NEO_SHADOWS.md]}>
+        <View style={styles.cardBanner}>
+          <Text style={styles.cardBannerText}>CAMERA SCANNER</Text>
         </View>
 
-        <TouchableOpacity style={styles.btn} onPress={() => analyze()} disabled={loading}>
-          {loading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={C.white} />
-              <Text style={styles.btnText}>Analysing…</Text>
+        <View style={styles.cardInner}>
+          <TouchableOpacity
+            style={[styles.cameraToggle, NEO_SHADOWS.sm]}
+            activeOpacity={0.85}
+            onPress={async () => {
+              if (permission?.granted) {
+                setScanned(false);
+                setShowCamera(true);
+                return;
+              }
+
+              if (permission?.canAskAgain) {
+                const p = await requestPermission();
+                if (p?.granted) {
+                  setScanned(false);
+                  setShowCamera(true);
+                }
+                return;
+              }
+
+              Alert.alert('Camera permission required', 'Camera permission is needed to scan barcodes.');
+            }}
+            disabled={loading}
+          >
+            <Text style={styles.cameraToggleText}>📷 OPEN LIVE CAMERA SCANNER</Text>
+          </TouchableOpacity>
+
+          {!permission?.granted && showCamera ? (
+            <Text style={styles.permissionText}>Camera permission required to scan</Text>
+          ) : null}
+
+          {showCamera && permission?.granted ? (
+            <View style={styles.cameraWrap}>
+              <CameraView
+                style={StyleSheet.absoluteFill}
+                barcodeScannerSettings={{
+                  barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'],
+                }}
+                onBarcodeScanned={scanned ? undefined : onBarcodeScanned}
+              />
+              <View style={styles.cameraOverlay}>
+                <Text style={styles.cameraHint}>ALIGN BARCODE WITHIN FRAME</Text>
+                <TouchableOpacity
+                  style={[styles.cancelBtn, NEO_SHADOWS.sm]}
+                  onPress={() => {
+                    setShowCamera(false);
+                    setScanned(false);
+                  }}
+                >
+                  <Text style={styles.cancelBtnText}>✕ CANCEL CAMERA</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          ) : (
-            <Text style={styles.btnText}>ANALYSE</Text>
-          )}
-        </TouchableOpacity>
+          ) : null}
+
+          {/* Barcode Input */}
+          <Text style={styles.inputLabel}>OR ENTER BARCODE DIGITS:</Text>
+          <TextInput
+            style={[styles.input, NEO_SHADOWS.sm]}
+            placeholder={barcodePlaceholder}
+            placeholderTextColor={NEO_COLORS.muted}
+            value={mainValue}
+            onChangeText={setMainValue}
+            keyboardType="numeric"
+          />
+
+          {notFound ? (
+            <View style={styles.notFoundBox}>
+              <Text style={styles.notFoundText}>⚠️ Product not found in database. Search by name below 👇</Text>
+              <TouchableOpacity
+                style={[styles.manualBtn, NEO_SHADOWS.sm]}
+                onPress={() => navigation.navigate('ManualEntry', { productName: productName.trim() || '' })}
+                disabled={loading}
+              >
+                <Text style={styles.manualBtnText}>ENTER NUTRITION MANUALLY →</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {/* Product Name Search */}
+          <Text style={[styles.inputLabel, { marginTop: 14 }]}>SEARCH BY PRODUCT NAME:</Text>
+          <TextInput
+            ref={productNameRef}
+            style={[styles.input, notFound ? styles.inputNotFound : null, NEO_SHADOWS.sm]}
+            placeholder={namePlaceholder}
+            placeholderTextColor={NEO_COLORS.muted}
+            value={productName}
+            onChangeText={(t) => {
+              setProductName(t);
+              if (notFound) setNotFound(false);
+            }}
+          />
+
+          {/* Quick Benchmark Chips */}
+          <Text style={[styles.inputLabel, { marginTop: 12 }]}>COMMON BENCHMARKS:</Text>
+          <View style={styles.chipsRow}>
+            {QUICK.map((q) => (
+              <TouchableOpacity
+                key={q}
+                style={[styles.chip, NEO_SHADOWS.sm]}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setBarcode('');
+                  setProductName(q);
+                }}
+                disabled={loading}
+              >
+                <Text style={styles.chipText}>{q}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Analyze CTA */}
+          <TouchableOpacity
+            style={[styles.btn, loading && styles.btnDisabled, NEO_SHADOWS.md]}
+            activeOpacity={0.88}
+            onPress={() => analyze()}
+            disabled={loading}
+          >
+            {loading ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color={NEO_COLORS.ink} />
+                <Text style={styles.btnText}>ANALYSING...</Text>
+              </View>
+            ) : (
+              <Text style={styles.btnText}>ANALYSE PRODUCT</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <TouchableOpacity
-        style={styles.manualOption}
-        onPress={() => navigation.navigate('ManualEntry', { productName: productName.trim() || '' })}
-        disabled={loading}
-      >
-        <Text style={styles.manualOptionText}>Enter Manually</Text>
-      </TouchableOpacity>
+      {/* Alternative Input Cards */}
+      <View style={styles.secondaryActions}>
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: NEO_COLORS.cyan }, NEO_SHADOWS.sm]}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('ManualEntry', { productName: productName.trim() || '' })}
+          disabled={loading}
+        >
+          <Text style={styles.actionIcon}>📝</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.actionTitle}>MANUAL NUTRITION ENTRY</Text>
+            <Text style={styles.actionSub}>Directly score calories, sugar, fat, salt & protein</Text>
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.ocrOption}
-        onPress={() => navigation.navigate('OCRScan', { productName: productName.trim() || '' })}
-        disabled={loading}
-      >
-        <Text style={styles.ocrOptionText}>📋 Scan Nutrition Label (OCR)</Text>
-      </TouchableOpacity>
-
-      <View style={styles.cameraHintCard}>
-        <Text style={styles.cameraHintTitle}>Tip</Text>
-        <Text style={styles.cameraHintText}>Scanning via camera is supported on mobile. On web, manual entry works best.</Text>
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: NEO_COLORS.pink }, NEO_SHADOWS.sm]}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('OCRScan', { productName: productName.trim() || '' })}
+          disabled={loading}
+        >
+          <Text style={styles.actionIcon}>📸</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.actionTitle}>SCAN NUTRITION LABEL (OCR)</Text>
+            <Text style={styles.actionSub}>Extract label table rows with automated OCR parser</Text>
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.cream },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: C.cream },
-  title: { fontSize: 28, fontWeight: '900', color: C.ink },
-  subtitle: { marginTop: 6, color: C.muted, fontWeight: '600', marginBottom: 16 },
-  card: { backgroundColor: C.white, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 16 },
-  cameraToggle: { marginBottom: 12, backgroundColor: C.white, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, paddingVertical: 10, paddingHorizontal: 12, alignItems: 'center' },
-  cameraToggleText: { color: C.ink, fontWeight: '900' },
-  permissionText: { marginBottom: 10, color: C.muted, fontWeight: '700' },
-  cameraWrap: { height: 260, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: C.border, marginBottom: 12, backgroundColor: '#000' },
-  cameraOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 12, backgroundColor: 'rgba(0,0,0,0.35)' },
-  cameraHint: { color: C.white, fontWeight: '800' },
-  cancelBtn: { marginTop: 10, alignSelf: 'flex-start', backgroundColor: C.white, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
-  cancelBtnText: { color: C.ink, fontWeight: '900' },
-  input: { backgroundColor: C.white, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, paddingVertical: 11, paddingHorizontal: 14, color: C.ink, fontWeight: '600' },
-  inputNotFound: { borderColor: '#F59E0B' },
-  notFoundText: { marginTop: 10, color: '#A9731B', fontWeight: '800' },
-  manualBtn: { marginTop: 10, backgroundColor: C.white, borderRadius: 10, borderWidth: 1.5, borderColor: '#F59E0B', paddingVertical: 12, alignItems: 'center' },
-  manualBtnText: { color: '#A9731B', fontWeight: '900' },
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: C.white, borderWidth: 1, borderColor: C.border },
-  chipText: { color: C.ink, fontWeight: '800' },
-  btn: { marginTop: 14, backgroundColor: C.sage, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  btnText: { color: C.white, fontWeight: '900', fontSize: 16, letterSpacing: 0.6 },
-  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  manualOption: { marginTop: 12, backgroundColor: C.white, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 14, alignItems: 'center' },
-  manualOptionText: { color: C.ink, fontWeight: '900' },
-  ocrOption: { marginTop: 10, backgroundColor: C.white, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 14, alignItems: 'center' },
-  ocrOptionText: { color: C.ink, fontWeight: '900' },
-  cameraHintCard: { marginTop: 14, backgroundColor: C.white, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 14 },
-  cameraHintTitle: { color: C.ink, fontWeight: '900' },
-  cameraHintText: { marginTop: 6, color: C.muted, fontWeight: '600' },
+  container: {
+    flex: 1,
+    backgroundColor: NEO_COLORS.bg,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: NEO_COLORS.bg,
+  },
+  permissionPrompt: {
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: '800',
+    color: NEO_COLORS.ink,
+  },
+  headerRow: {
+    marginBottom: 4,
+  },
+  headerTag: {
+    backgroundColor: NEO_COLORS.yellow,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  headerTagText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.6,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    color: NEO_COLORS.muted,
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 14,
+  },
+  mainCard: {
+    backgroundColor: NEO_COLORS.white,
+    borderWidth: NEO_BORDERS.thick,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.md,
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  cardBanner: {
+    backgroundColor: NEO_COLORS.cyan,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderBottomWidth: NEO_BORDERS.thick,
+    borderBottomColor: NEO_COLORS.border,
+  },
+  cardBannerText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.5,
+  },
+  cardInner: {
+    padding: 14,
+  },
+  cameraToggle: {
+    backgroundColor: NEO_COLORS.yellow,
+    borderRadius: NEO_RADIUS.sm,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  cameraToggleText: {
+    color: NEO_COLORS.ink,
+    fontWeight: '900',
+    fontSize: 13,
+    letterSpacing: 0.4,
+  },
+  permissionText: {
+    marginBottom: 10,
+    color: NEO_COLORS.coral,
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  cameraWrap: {
+    height: 240,
+    borderRadius: NEO_RADIUS.sm,
+    overflow: 'hidden',
+    borderWidth: NEO_BORDERS.thick,
+    borderColor: NEO_COLORS.border,
+    marginBottom: 14,
+    backgroundColor: NEO_COLORS.ink,
+  },
+  cameraOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+  },
+  cameraHint: {
+    color: NEO_COLORS.white,
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  cancelBtn: {
+    marginTop: 8,
+    backgroundColor: NEO_COLORS.coral,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: NEO_RADIUS.xs,
+  },
+  cancelBtnText: {
+    color: NEO_COLORS.ink,
+    fontWeight: '900',
+    fontSize: 11,
+  },
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.muted,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  input: {
+    backgroundColor: NEO_COLORS.white,
+    borderRadius: NEO_RADIUS.sm,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    color: NEO_COLORS.ink,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  inputNotFound: {
+    borderColor: NEO_COLORS.coral,
+  },
+  notFoundBox: {
+    marginTop: 10,
+    backgroundColor: NEO_COLORS.status.avoidBg,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.sm,
+    padding: 10,
+  },
+  notFoundText: {
+    color: NEO_COLORS.ink,
+    fontWeight: '800',
+    fontSize: 11,
+  },
+  manualBtn: {
+    marginTop: 8,
+    backgroundColor: NEO_COLORS.white,
+    borderRadius: NEO_RADIUS.xs,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  manualBtnText: {
+    color: NEO_COLORS.ink,
+    fontWeight: '900',
+    fontSize: 11,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 6,
+  },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: NEO_RADIUS.xs,
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+  },
+  chipText: {
+    color: NEO_COLORS.ink,
+    fontWeight: '800',
+    fontSize: 11,
+  },
+  btn: {
+    marginTop: 14,
+    backgroundColor: NEO_COLORS.yellow,
+    borderWidth: NEO_BORDERS.thick,
+    borderColor: NEO_COLORS.border,
+    paddingVertical: 14,
+    borderRadius: NEO_RADIUS.sm,
+    alignItems: 'center',
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  btnText: {
+    color: NEO_COLORS.ink,
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: 0.8,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  secondaryActions: {
+    gap: 10,
+  },
+  actionCard: {
+    borderWidth: NEO_BORDERS.thick,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.md,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  actionIcon: {
+    fontSize: 22,
+  },
+  actionTitle: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.4,
+  },
+  actionSub: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: NEO_COLORS.ink,
+    marginTop: 2,
+    opacity: 0.85,
+  },
+  actionArrow: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+  },
 });

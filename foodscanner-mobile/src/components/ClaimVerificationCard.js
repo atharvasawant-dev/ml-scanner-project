@@ -1,19 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { verifyClaims } from '../services/api';
-
-const C = {
-  cream: '#F5F2EC',
-  ink: '#1A1A17',
-  sage: '#4E8C52',
-  sageLight: '#C3D9C5',
-  amberLight: '#F0D9A8',
-  redLight: '#F0C8C0',
-  border: '#DDD8CE',
-  muted: '#888179',
-  white: '#FFFFFF',
-  red: '#B83C28',
-};
+import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../theme/neoTheme';
 
 const STANDARD_FSSAI_CLAIMS = [
   'No Added Sugar',
@@ -28,15 +16,15 @@ const STANDARD_FSSAI_CLAIMS = [
 function _claimStatusMeta(status) {
   const s = String(status || '').toUpperCase();
   if (s === 'SUPPORTED') {
-    return { label: 'SUPPORTED', bg: '#E8F5E9', fg: '#1e5222', icon: '✓', dot: '#2E7D32' };
+    return { label: 'SUPPORTED', bg: NEO_COLORS.green, fg: NEO_COLORS.ink, icon: '✓', dot: '#2E7D32' };
   }
   if (s === 'NOT_SUPPORTED') {
-    return { label: 'NOT SUPPORTED', bg: C.redLight, fg: '#8c1a0a', icon: '✕', dot: '#B83C28' };
+    return { label: 'NOT SUPPORTED', bg: NEO_COLORS.coral, fg: NEO_COLORS.ink, icon: '✕', dot: '#B83C28' };
   }
   if (s === 'NEEDS_REVIEW') {
-    return { label: 'NEEDS REVIEW', bg: C.amberLight, fg: '#7a4a0a', icon: '⚠', dot: '#EF6C00' };
+    return { label: 'NEEDS REVIEW', bg: NEO_COLORS.yellow, fg: NEO_COLORS.ink, icon: '⚠', dot: '#EF6C00' };
   }
-  return { label: 'INSUFFICIENT DATA', bg: '#F5F2EC', fg: '#666159', icon: '?', dot: '#888179' };
+  return { label: 'INSUFFICIENT DATA', bg: NEO_COLORS.bgAlt, fg: NEO_COLORS.muted, icon: '?', dot: '#888179' };
 }
 
 export default function ClaimVerificationCard({
@@ -83,188 +71,261 @@ export default function ClaimVerificationCard({
   const supportedCount = results.filter((r) => String(r?.status).toUpperCase() === 'SUPPORTED').length;
 
   return (
-    <View style={styles.card}>
-      <View style={styles.headerRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>FSSAI Claim Verification</Text>
-          <Text style={styles.cardSubtitle}>
-            {hasResults
-              ? `${supportedCount} of ${results.length} standard statutory claims verified`
-              : 'Verify package claims against official FSSAI 2018 regulations'}
-          </Text>
+    <View style={[styles.card, NEO_SHADOWS.md]}>
+      {/* Neo-Brutalist Accent Banner */}
+      <View style={styles.headerBanner}>
+        <View style={styles.headerLeft}>
+          <View style={styles.diamondMarker} />
+          <Text style={styles.headerTitle}>FSSAI CLAIM VERIFICATION</Text>
         </View>
-
-        {!hasResults && !loading ? (
-          <TouchableOpacity style={styles.actionBtn} onPress={handleVerify}>
-            <Text style={styles.actionBtnText}>Verify</Text>
-          </TouchableOpacity>
-        ) : null}
-
         {hasResults ? (
-          <TouchableOpacity style={styles.toggleBtn} onPress={() => setExpanded((v) => !v)}>
-            <Text style={styles.toggleBtnText}>{expanded ? 'Hide ▴' : 'View ▾'}</Text>
-          </TouchableOpacity>
+          <View style={styles.countBadge}>
+            <Text style={styles.countBadgeText}>{supportedCount}/{results.length} PASS</Text>
+          </View>
         ) : null}
       </View>
 
-      {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator color={C.sage} size="small" />
-          <Text style={styles.loadingText}>Checking FSSAI regulatory criteria...</Text>
+      <View style={styles.cardContent}>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.cardSubtitle}>
+              {hasResults
+                ? `${supportedCount} of ${results.length} standard statutory claims verified against official FSSAI thresholds`
+                : 'Audit front-of-pack claims against official FSSAI 2018 statutory criteria'}
+            </Text>
+          </View>
+
+          {!hasResults && !loading ? (
+            <TouchableOpacity
+              style={[styles.actionBtn, NEO_SHADOWS.sm]}
+              activeOpacity={0.85}
+              onPress={handleVerify}
+            >
+              <Text style={styles.actionBtnText}>VERIFY NOW</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {hasResults ? (
+            <TouchableOpacity
+              style={[styles.toggleBtn, NEO_SHADOWS.sm]}
+              activeOpacity={0.85}
+              onPress={() => setExpanded((v) => !v)}
+            >
+              <Text style={styles.toggleBtnText}>{expanded ? 'COLLAPSE ▴' : 'EXPAND ▾'}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
-      ) : null}
 
-      {error ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>⚠️ {error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={handleVerify}>
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator color={NEO_COLORS.ink} size="small" />
+            <Text style={styles.loadingText}>Validating FSSAI regulatory criteria...</Text>
+          </View>
+        ) : null}
 
-      {hasResults && expanded ? (
-        <View style={styles.resultsWrap}>
-          {results.map((item, idx) => {
-            const meta = _claimStatusMeta(item?.status);
-            const claimName = item?.claim || item?.normalized_claim || `Claim #${idx + 1}`;
-            const reason = item?.reason || '';
-            const citation = item?.source?.regulation
-              ? `${item.source.regulation} (${item.source.schedule || 'Schedule I'})`
-              : null;
+        {error ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>⚠️ {error}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={handleVerify}>
+              <Text style={styles.retryText}>RETRY</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
-            return (
-              <View key={idx} style={styles.claimItem}>
-                <View style={styles.claimTopRow}>
-                  <Text style={styles.claimName}>{claimName}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: meta.bg, borderColor: C.border }]}>
-                    <Text style={[styles.statusText, { color: meta.fg }]}>
-                      {meta.icon} {meta.label}
-                    </Text>
+        {hasResults && expanded ? (
+          <View style={styles.resultsWrap}>
+            {results.map((item, idx) => {
+              const meta = _claimStatusMeta(item?.status);
+              const claimName = item?.claim || item?.normalized_claim || `Claim #${idx + 1}`;
+              const reason = item?.reason || '';
+              const citation = item?.source?.regulation
+                ? `${item.source.regulation} (${item.source.schedule || 'Schedule I'})`
+                : null;
+
+              return (
+                <View key={idx} style={[styles.claimItem, NEO_SHADOWS.sm]}>
+                  <View style={styles.claimTopRow}>
+                    <Text style={styles.claimName}>{claimName}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
+                      <Text style={styles.statusText}>
+                        {meta.icon} {meta.label}
+                      </Text>
+                    </View>
                   </View>
+
+                  {reason ? <Text style={styles.claimReason}>{reason}</Text> : null}
+
+                  {citation ? (
+                    <View style={styles.sourceRow}>
+                      <Text style={styles.sourceLabel}>RULE:</Text>
+                      <Text style={styles.claimSource}>{citation}</Text>
+                    </View>
+                  ) : null}
                 </View>
+              );
+            })}
 
-                {reason ? <Text style={styles.claimReason}>{reason}</Text> : null}
-
-                {citation ? (
-                  <Text style={styles.claimSource}>Source: {citation}</Text>
-                ) : null}
-              </View>
-            );
-          })}
-
-          <Text style={styles.disclaimer}>
-            {data?.disclaimer ||
-              'Rule-based assessment against referenced FSSAI regulatory criteria. Not a legal certification.'}
-          </Text>
-        </View>
-      ) : null}
+            <View style={styles.disclaimerBox}>
+              <Text style={styles.disclaimerTitle}>STATUTORY DISCLAIMER</Text>
+              <Text style={styles.disclaimer}>
+                {data?.disclaimer ||
+                  'Rule-based assessment against referenced FSSAI regulatory criteria. Not a legal certification.'}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 12,
-    backgroundColor: C.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 16,
+    marginTop: 14,
+    backgroundColor: NEO_COLORS.white,
+    borderRadius: NEO_RADIUS.md,
+    borderWidth: NEO_BORDERS.thick,
+    borderColor: NEO_COLORS.border,
+    overflow: 'hidden',
+  },
+  headerBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: NEO_COLORS.cyan,
+    borderBottomWidth: NEO_BORDERS.thick,
+    borderBottomColor: NEO_COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  diamondMarker: {
+    width: 8,
+    height: 8,
+    backgroundColor: NEO_COLORS.ink,
+    transform: [{ rotate: '45deg' }],
+  },
+  headerTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.5,
+  },
+  countBadge: {
+    backgroundColor: NEO_COLORS.white,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  countBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+  },
+  cardContent: {
+    padding: 14,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: C.ink,
   },
   cardSubtitle: {
-    marginTop: 4,
-    color: C.muted,
+    color: NEO_COLORS.muted,
     fontSize: 12,
     fontWeight: '600',
+    lineHeight: 17,
   },
   actionBtn: {
-    backgroundColor: C.sage,
+    backgroundColor: NEO_COLORS.yellow,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 9,
+    borderRadius: NEO_RADIUS.sm,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
   },
   actionBtnText: {
-    color: C.white,
+    color: NEO_COLORS.ink,
     fontWeight: '900',
-    fontSize: 13,
+    fontSize: 12,
+    letterSpacing: 0.4,
   },
   toggleBtn: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: C.cream,
-    borderWidth: 1,
-    borderColor: C.border,
+    paddingVertical: 7,
+    borderRadius: NEO_RADIUS.sm,
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
   },
   toggleBtnText: {
-    color: C.ink,
-    fontWeight: '800',
-    fontSize: 12,
+    color: NEO_COLORS.ink,
+    fontWeight: '900',
+    fontSize: 11,
+    letterSpacing: 0.3,
   },
   loadingBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 12,
-    paddingTop: 8,
+    marginTop: 14,
+    padding: 10,
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderRadius: NEO_RADIUS.sm,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
   },
   loadingText: {
-    color: C.muted,
-    fontSize: 13,
-    fontWeight: '700',
+    color: NEO_COLORS.ink,
+    fontSize: 12,
+    fontWeight: '800',
   },
   errorBox: {
     marginTop: 12,
-    backgroundColor: C.redLight,
+    backgroundColor: NEO_COLORS.status.avoidBg,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
     padding: 10,
-    borderRadius: 10,
+    borderRadius: NEO_RADIUS.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   errorText: {
-    color: '#8c1a0a',
+    color: NEO_COLORS.ink,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     flex: 1,
   },
   retryBtn: {
-    marginLeft: 8,
+    backgroundColor: NEO_COLORS.white,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: C.white,
-    borderRadius: 6,
+    borderRadius: NEO_RADIUS.xs,
   },
   retryText: {
-    color: C.ink,
-    fontWeight: '800',
+    color: NEO_COLORS.ink,
     fontSize: 11,
+    fontWeight: '900',
   },
   resultsWrap: {
     marginTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 12,
+    gap: 10,
   },
   claimItem: {
-    backgroundColor: C.cream,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
+    backgroundColor: NEO_COLORS.card,
+    borderRadius: NEO_RADIUS.sm,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
     padding: 12,
-    marginBottom: 8,
   },
   claimTopRow: {
     flexDirection: 'row',
@@ -275,38 +336,68 @@ const styles = StyleSheet.create({
   claimName: {
     fontSize: 14,
     fontWeight: '900',
-    color: C.ink,
+    color: NEO_COLORS.ink,
     flex: 1,
   },
   statusBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
+    paddingVertical: 3,
+    borderRadius: NEO_RADIUS.xs,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.4,
   },
   claimReason: {
-    marginTop: 6,
-    color: C.ink,
     fontSize: 12,
+    color: NEO_COLORS.ink,
     fontWeight: '600',
+    marginTop: 6,
     lineHeight: 16,
   },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: NEO_COLORS.bgAlt,
+  },
+  sourceLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: NEO_COLORS.muted,
+  },
   claimSource: {
-    marginTop: 4,
-    color: C.muted,
-    fontSize: 11,
+    fontSize: 10,
+    color: NEO_COLORS.muted,
     fontWeight: '700',
-    fontStyle: 'italic',
+    flex: 1,
+  },
+  disclaimerBox: {
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.sm,
+    padding: 10,
+    marginTop: 6,
+  },
+  disclaimerTitle: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.muted,
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   disclaimer: {
-    marginTop: 8,
     fontSize: 11,
-    color: C.muted,
-    fontStyle: 'italic',
+    color: NEO_COLORS.muted,
+    fontWeight: '600',
     lineHeight: 15,
   },
 });

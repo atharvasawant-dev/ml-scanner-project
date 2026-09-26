@@ -1,22 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 
 import { getUserProfile, updateUserProfile } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-
-const C = {
-  cream: '#F5F2EC',
-  ink: '#1A1A17',
-  sage: '#4E8C52',
-  sageLight: '#C3D9C5',
-  amberLight: '#F0D9A8',
-  redLight: '#F0C8C0',
-  border: '#DDD8CE',
-  muted: '#888179',
-  white: '#FFFFFF',
-  red: '#B83C28',
-};
+import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS, NEO_TYPOGRAPHY } from '../theme/neoTheme';
+import { NeoCard, NeoButton, NeoInput, NeoBadge, NeoSectionHeader } from '../components/neo';
 
 const DIETS = [
   { key: null, label: 'None' },
@@ -34,14 +22,6 @@ const GOALS = [
   { key: 'reduce_sodium', label: 'Reduce Sodium' },
 ];
 
-function Pill({ label, active, onPress }) {
-  return (
-    <TouchableOpacity onPress={onPress} style={[styles.pill, active && styles.pillActive]}>
-      <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
 export default function ProfileScreen({ navigation }) {
   const { logout } = useAuth();
   const [profile, setProfile] = useState(null);
@@ -49,6 +29,7 @@ export default function ProfileScreen({ navigation }) {
   const [goal, setGoal] = useState(null);
   const [goalDays, setGoalDays] = useState('30');
   const [dailyLimit, setDailyLimit] = useState('2000');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -66,6 +47,7 @@ export default function ProfileScreen({ navigation }) {
   }, []);
 
   const save = async () => {
+    setSaving(true);
     try {
       const payload = {
         diet_type: diet,
@@ -74,85 +56,265 @@ export default function ProfileScreen({ navigation }) {
         goal_target_days: goalDays ? Number(goalDays) : null,
       };
       await updateUserProfile(payload);
-      Alert.alert('Saved', 'Profile updated');
+      Alert.alert('Profile Saved', 'Your dietary and health preferences have been updated.');
     } catch (e) {
       const msg = e?.response?.data?.detail || e?.message || 'Update failed';
       Alert.alert('Error', String(msg));
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleLogout = async () => {
-    await logout();
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out of PRAMAAN?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Log Out', style: 'destructive', onPress: async () => await logout() },
+      ]
+    );
   };
 
   const initial = (profile?.name || profile?.email || 'U').trim().slice(0, 1).toUpperCase();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 50 }}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* User Header Hero */}
+      <NeoCard variant="white" elevation="md" style={styles.userCard}>
+        <View style={styles.userRow}>
+          <View style={styles.avatarBox}>
+            <Text style={styles.avatarText}>{initial}</Text>
+          </View>
+          <View style={styles.userInfo}>
+            <View style={styles.badgeRow}>
+              <NeoBadge text="VERIFIED PROFILE" variant="purple" />
+            </View>
+            <Text style={styles.userName} numberOfLines={1}>
+              {profile?.name || 'Verified User'}
+            </Text>
+            <Text style={styles.userEmail} numberOfLines={1}>
+              {profile?.email || 'user@pramaan.ai'}
+            </Text>
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{profile?.name || 'User'}</Text>
-          <Text style={styles.email}>{profile?.email || ''}</Text>
+      </NeoCard>
+
+      {/* Diet Type Selector */}
+      <NeoCard variant="white" elevation="sm" style={styles.sectionCard}>
+        <NeoSectionHeader title="Dietary Profile" count="Active" tagColor={NEO_COLORS.yellow} />
+        <Text style={styles.hintText}>
+          Food recommendations and scan warnings adapt to your selected diet.
+        </Text>
+        <View style={styles.pillsWrap}>
+          {DIETS.map((d) => {
+            const active = diet === d.key;
+            return (
+              <TouchableOpacity
+                key={String(d.key)}
+                style={[
+                  styles.pill,
+                  active ? styles.pillActiveDiet : styles.pillInactive,
+                ]}
+                onPress={() => setDiet(d.key)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.pillText, active && styles.pillTextActive]}>
+                  {d.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-      </View>
+      </NeoCard>
 
-      <View style={styles.card}>
-        <Text style={styles.section}>Diet Type</Text>
-        <View style={styles.pills}>
-          {DIETS.map((d) => (
-            <Pill key={String(d.key)} label={d.label} active={diet === d.key} onPress={() => setDiet(d.key)} />
-          ))}
+      {/* Daily Calorie Limit */}
+      <NeoCard variant="white" elevation="sm" style={styles.sectionCard}>
+        <NeoSectionHeader title="Daily Energy Target" tagColor={NEO_COLORS.orange} />
+        <Text style={styles.hintText}>
+          Baseline maximum daily intake for your nutrition audit dashboard.
+        </Text>
+        <NeoInput
+          label="Daily Calorie Limit"
+          value={dailyLimit}
+          onChangeText={setDailyLimit}
+          keyboardType="numeric"
+          placeholder="2000"
+          rightElement={
+            <NeoBadge text="KCAL / DAY" variant="yellow" style={{ marginHorizontal: 4 }} />
+          }
+        />
+      </NeoCard>
+
+      {/* Health Goal */}
+      <NeoCard variant="white" elevation="sm" style={styles.sectionCard}>
+        <NeoSectionHeader title="Health Objective" count="Goal" tagColor={NEO_COLORS.cyan} />
+        <Text style={styles.hintText}>
+          Select your primary wellness target to customize statutory insights.
+        </Text>
+        <View style={styles.pillsWrap}>
+          {GOALS.map((g) => {
+            const active = goal === g.key;
+            return (
+              <TouchableOpacity
+                key={g.key}
+                style={[
+                  styles.pill,
+                  active ? styles.pillActiveGoal : styles.pillInactive,
+                ]}
+                onPress={() => setGoal(g.key)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.pillText, active && styles.pillTextActive]}>
+                  {g.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.section}>Daily Calorie Limit</Text>
-        <TextInput style={styles.input} value={dailyLimit} onChangeText={setDailyLimit} keyboardType="numeric" />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.section}>Health Goal</Text>
-        <View style={styles.pills}>
-          {GOALS.map((g) => (
-            <Pill key={g.key} label={g.label} active={goal === g.key} onPress={() => setGoal(g.key)} />
-          ))}
+        <View style={{ marginTop: 14 }}>
+          <NeoInput
+            label="Target Timeline"
+            value={goalDays}
+            onChangeText={setGoalDays}
+            keyboardType="numeric"
+            placeholder="30"
+            rightElement={
+              <NeoBadge text="DAYS" variant="cyan" style={{ marginHorizontal: 4 }} />
+            }
+          />
         </View>
+      </NeoCard>
 
-        <Text style={[styles.section, { marginTop: 14 }]}>Goal target days</Text>
-        <TextInput style={styles.input} value={goalDays} onChangeText={setGoalDays} keyboardType="numeric" />
+      {/* Action Buttons */}
+      <View style={styles.actionsWrap}>
+        <NeoButton
+          title={saving ? 'SAVING PREFERENCES...' : 'SAVE PROFILE PREFERENCES'}
+          variant="green"
+          size="lg"
+          onPress={save}
+          disabled={saving}
+        />
+
+        <NeoButton
+          title="LOGOUT FROM PRAMAAN"
+          variant="white"
+          size="md"
+          onPress={handleLogout}
+          textStyle={{ color: NEO_COLORS.coral }}
+          style={styles.logoutBtn}
+        />
       </View>
-
-      <TouchableOpacity style={styles.inkBtn} onPress={save}>
-        <Text style={styles.inkBtnText}>SAVE</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutText}>LOGOUT</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.cream },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.sageLight, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
-  avatarText: { fontWeight: '900', color: '#1e5222', fontSize: 20 },
-  name: { fontSize: 20, fontWeight: '900', color: C.ink },
-  email: { marginTop: 4, color: C.muted, fontWeight: '600' },
-  card: { backgroundColor: C.white, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 16, marginBottom: 14 },
-  section: { fontSize: 16, fontWeight: '900', color: C.ink },
-  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
-  pill: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.white },
-  pillActive: { backgroundColor: C.sage, borderColor: C.sage },
-  pillText: { fontWeight: '800', color: C.ink },
-  pillTextActive: { color: C.white },
-  input: { backgroundColor: C.white, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, marginTop: 10, borderWidth: 1.5, borderColor: C.border, color: C.ink, fontWeight: '700' },
-  inkBtn: { marginTop: 6, backgroundColor: C.ink, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  inkBtnText: { color: C.white, fontWeight: '900', fontSize: 16, letterSpacing: 1 },
-  logoutBtn: { marginTop: 12, borderWidth: 1.5, borderColor: C.red, paddingVertical: 14, borderRadius: 10, alignItems: 'center', backgroundColor: 'transparent' },
-  logoutText: { color: C.red, fontWeight: '900', fontSize: 16, letterSpacing: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: NEO_COLORS.bg,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  userCard: {
+    padding: 16,
+    marginBottom: 16,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  avatarBox: {
+    width: 60,
+    height: 60,
+    backgroundColor: NEO_COLORS.yellow,
+    borderWidth: NEO_BORDERS.thick,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...NEO_SHADOWS.sm,
+  },
+  avatarText: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+  },
+  userInfo: {
+    flex: 1,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: -0.3,
+  },
+  userEmail: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: NEO_COLORS.muted,
+    marginTop: 2,
+  },
+  sectionCard: {
+    padding: 16,
+    marginBottom: 16,
+  },
+  hintText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: NEO_COLORS.muted,
+    marginBottom: 12,
+    marginTop: -4,
+  },
+  pillsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: NEO_RADIUS.pill,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+  },
+  pillInactive: {
+    backgroundColor: NEO_COLORS.white,
+  },
+  pillActiveDiet: {
+    backgroundColor: NEO_COLORS.coral,
+    ...NEO_SHADOWS.sm,
+  },
+  pillActiveGoal: {
+    backgroundColor: NEO_COLORS.cyan,
+    ...NEO_SHADOWS.sm,
+  },
+  pillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: NEO_COLORS.ink,
+  },
+  pillTextActive: {
+    color: NEO_COLORS.ink,
+    fontWeight: '900',
+  },
+  actionsWrap: {
+    gap: 12,
+    marginTop: 4,
+  },
+  logoutBtn: {
+    borderColor: NEO_COLORS.coral,
+  },
 });

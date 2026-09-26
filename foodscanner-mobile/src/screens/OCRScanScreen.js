@@ -1,21 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 import { scanNutritionLabel } from '../services/api';
-
-const C = {
-  cream: '#F5F2EC',
-  ink: '#1A1A17',
-  sage: '#4E8C52',
-  sageLight: '#C3D9C5',
-  amberLight: '#F0D9A8',
-  redLight: '#F0C8C0',
-  border: '#DDD8CE',
-  muted: '#888179',
-  white: '#FFFFFF',
-  red: '#B83C28',
-};
+import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS, NEO_TYPOGRAPHY } from '../theme/neoTheme';
+import { NeoCard, NeoButton, NeoBadge, NeoSectionHeader } from '../components/neo';
 
 export default function OCRScanScreen({ navigation, route }) {
   const prefillName = route?.params?.productName;
@@ -23,7 +12,7 @@ export default function OCRScanScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [lastOcr, setLastOcr] = useState(null);
 
-  const subtitle = useMemo(() => 'Point camera at the nutrition label on the product', []);
+  const subtitle = useMemo(() => 'Point camera at the nutrition table on the food packaging', []);
 
   const goManual = (prefill) => {
     navigation.replace('ManualEntry', {
@@ -44,7 +33,7 @@ export default function OCRScanScreen({ navigation, route }) {
 
   const processAsset = async (asset) => {
     if (!asset?.base64) {
-      Alert.alert('Error', 'Could not read image data. Please try again.');
+      Alert.alert('Image Error', 'Could not read image data. Please try again.');
       goManual(null);
       return;
     }
@@ -66,8 +55,8 @@ export default function OCRScanScreen({ navigation, route }) {
 
       if (!hasValues) {
         Alert.alert(
-          'Low Confidence',
-          'Could not detect clear nutrition values. Please review and enter them manually.'
+          'Low Confidence Read',
+          'Could not detect all nutrition values automatically. Please review and fill in the missing fields.'
         );
       }
       goManual(res);
@@ -91,7 +80,7 @@ export default function OCRScanScreen({ navigation, route }) {
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm?.granted) {
-        Alert.alert('Permission required', 'Camera permission is required to take a photo.');
+        Alert.alert('Permission Required', 'Camera permission is required to capture packaging.');
         return;
       }
 
@@ -113,7 +102,7 @@ export default function OCRScanScreen({ navigation, route }) {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm?.granted) {
-        Alert.alert('Permission required', 'Gallery permission is required to pick a photo.');
+        Alert.alert('Permission Required', 'Gallery permission is required to select photos.');
         return;
       }
 
@@ -133,60 +122,221 @@ export default function OCRScanScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
-      <Text style={styles.title}>Scan Nutrition Label 📋</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header Banner */}
+      <View style={styles.header}>
+        <View style={styles.badgeRow}>
+          <NeoBadge text="OPTICAL OCR ENGINE" variant="purple" />
+          <Text style={styles.headerTag}>⚡ VISION AI</Text>
+        </View>
+        <Text style={styles.title}>Scan Nutrition Label</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
+      </View>
 
-      <View style={styles.card}>
-        <TouchableOpacity style={styles.btn} onPress={takePhoto} disabled={loading}>
-          <Text style={styles.btnText}>📷 Take Photo</Text>
-        </TouchableOpacity>
+      {/* Viewfinder Preview Box */}
+      <NeoCard variant="white" elevation="lg" style={styles.viewfinderCard}>
+        <View style={styles.frameContainer}>
+          {/* Corner brackets */}
+          <View style={[styles.corner, styles.cornerTL]} />
+          <View style={[styles.corner, styles.cornerTR]} />
+          <View style={[styles.corner, styles.cornerBL]} />
+          <View style={[styles.corner, styles.cornerBR]} />
 
-        <TouchableOpacity style={styles.btnOutline} onPress={chooseFromGallery} disabled={loading}>
-          <Text style={styles.btnOutlineText}>🖼️ Choose from Gallery</Text>
-        </TouchableOpacity>
+          <View style={styles.frameInner}>
+            <Text style={styles.frameIcon}>📋</Text>
+            <Text style={styles.frameTitle}>ALIGN NUTRITION TABLE</Text>
+            <Text style={styles.frameHint}>
+              Ensure energy, fats, sugars, and protein are clearly visible
+            </Text>
+          </View>
+        </View>
 
         {loading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator color={C.sage} />
-            <Text style={styles.loadingText}>Reading nutrition label...</Text>
+          <View style={styles.loadingBanner}>
+            <ActivityIndicator size="small" color={NEO_COLORS.ink} />
+            <Text style={styles.loadingText}>EXTRACTING NUTRITION VIA OCR...</Text>
           </View>
         ) : null}
 
         {Platform.OS === 'web' ? (
-          <Text style={styles.webNote}>On web, camera may not work reliably. Gallery upload is recommended.</Text>
+          <View style={styles.webNote}>
+            <Text style={styles.webNoteText}>
+              💡 On web, camera stream may not work reliably. Gallery upload is recommended.
+            </Text>
+          </View>
         ) : null}
 
-        <TouchableOpacity style={styles.ghostBtn} onPress={() => goManual(null)} disabled={loading}>
-          <Text style={styles.ghostText}>Enter Manually Instead</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Action Controls */}
+        <View style={styles.actionsWrap}>
+          <NeoButton
+            title="📷 TAKE PHOTO WITH CAMERA"
+            variant="yellow"
+            size="lg"
+            onPress={takePhoto}
+            disabled={loading}
+          />
+
+          <NeoButton
+            title="🖼️ CHOOSE FROM GALLERY"
+            variant="cyan"
+            size="md"
+            onPress={chooseFromGallery}
+            disabled={loading}
+          />
+
+          <NeoButton
+            title="ENTER MANUALLY INSTEAD"
+            variant="white"
+            size="md"
+            onPress={() => goManual(null)}
+            disabled={loading}
+          />
+        </View>
+      </NeoCard>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.cream },
-  title: { fontSize: 28, fontWeight: '900', color: C.ink },
-  subtitle: { marginTop: 6, color: C.muted, fontWeight: '600', marginBottom: 16 },
-
-  card: { backgroundColor: C.white, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 16 },
-
-  btn: { backgroundColor: C.sage, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  btnText: { color: C.white, fontWeight: '900', fontSize: 16 },
-
-  btnOutline: { marginTop: 12, backgroundColor: C.white, borderWidth: 1.5, borderColor: C.border, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  btnOutlineText: { color: C.ink, fontWeight: '900', fontSize: 16 },
-
-  loadingBox: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  loadingText: { color: C.muted, fontWeight: '800' },
-
-  rawBox: { marginTop: 14, backgroundColor: C.white, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 12 },
-  rawTitle: { color: C.ink, fontWeight: '900' },
-  rawText: { marginTop: 8, color: C.muted, fontWeight: '600' },
-
-  ghostBtn: { marginTop: 16, backgroundColor: C.white, borderWidth: 1.5, borderColor: C.border, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
-  ghostText: { color: C.ink, fontWeight: '900' },
-
-  webNote: { marginTop: 12, color: C.muted, fontWeight: '600' },
+  container: {
+    flex: 1,
+    backgroundColor: NEO_COLORS.bg,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  header: {
+    marginBottom: 16,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  headerTag: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.5,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: NEO_COLORS.muted,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  viewfinderCard: {
+    padding: 16,
+  },
+  frameContainer: {
+    height: 220,
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderWidth: NEO_BORDERS.thick,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.md,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    marginBottom: 16,
+  },
+  corner: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderColor: NEO_COLORS.ink,
+  },
+  cornerTL: {
+    top: 10,
+    left: 10,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+  },
+  cornerTR: {
+    top: 10,
+    right: 10,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+  },
+  cornerBL: {
+    bottom: 10,
+    left: 10,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+  },
+  cornerBR: {
+    bottom: 10,
+    right: 10,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+  },
+  frameInner: {
+    alignItems: 'center',
+  },
+  frameIcon: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  frameTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  frameHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: NEO_COLORS.muted,
+    textAlign: 'center',
+    maxWidth: 240,
+  },
+  loadingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: NEO_COLORS.purpleLight,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.md,
+    padding: 12,
+    gap: 10,
+    marginBottom: 14,
+    ...NEO_SHADOWS.sm,
+  },
+  loadingText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.5,
+  },
+  webNote: {
+    backgroundColor: NEO_COLORS.yellow,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.md,
+    padding: 10,
+    marginBottom: 14,
+  },
+  webNoteText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: NEO_COLORS.ink,
+  },
+  actionsWrap: {
+    gap: 10,
+  },
 });

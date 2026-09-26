@@ -1,28 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { compareProducts } from '../services/api';
-
-const C = {
-  cream: '#F5F2EC',
-  ink: '#1A1A17',
-  sage: '#4E8C52',
-  sageLight: '#C3D9C5',
-  amberLight: '#F0D9A8',
-  redLight: '#F0C8C0',
-  border: '#DDD8CE',
-  muted: '#888179',
-  white: '#FFFFFF',
-  red: '#B83C28',
-};
+import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../theme/neoTheme';
 
 const COMPARE_SUGGESTIONS = ['Parle-G', 'Maggi', 'Kurkure', "Lay's", 'Amul Butter'];
 
 function _scorePill(score) {
   const s = Number(score);
-  if (!Number.isFinite(s)) return { text: 'N/A', bg: C.white, fg: C.muted };
-  if (s >= 70) return { text: `${s}`, bg: '#E8F5E9', fg: '#1e5222' };
-  if (s >= 45) return { text: `${s}`, bg: C.amberLight, fg: '#7a4a0a' };
-  return { text: `${s}`, bg: C.redLight, fg: '#8c1a0a' };
+  if (!Number.isFinite(s)) return { text: 'N/A', bg: NEO_COLORS.bgAlt, fg: NEO_COLORS.muted };
+  if (s >= 70) return { text: `${s}`, bg: NEO_COLORS.green, fg: NEO_COLORS.ink };
+  if (s >= 45) return { text: `${s}`, bg: NEO_COLORS.yellow, fg: NEO_COLORS.ink };
+  return { text: `${s}`, bg: NEO_COLORS.coral, fg: NEO_COLORS.ink };
 }
 
 function _nutriscoreColor(grade) {
@@ -32,7 +20,7 @@ function _nutriscoreColor(grade) {
   if (g === 'c') return '#FBC02D';
   if (g === 'd') return '#EF6C00';
   if (g === 'e') return '#C62828';
-  return C.muted;
+  return NEO_COLORS.muted;
 }
 
 export default function ComparisonCard({ currentProduct = null }) {
@@ -94,370 +82,399 @@ export default function ComparisonCard({ currentProduct = null }) {
   ];
 
   return (
-    <View style={styles.card}>
-      <TouchableOpacity
-        style={styles.headerRow}
-        onPress={() => setExpanded((v) => !v)}
-      >
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>⚖️ Compare Products</Text>
-          <Text style={styles.cardSubtitle}>
-            Side-by-side nutritional comparison against another food
-          </Text>
+    <View style={[styles.card, NEO_SHADOWS.md]}>
+      {/* Neo-Brutalist Orange Banner */}
+      <View style={styles.headerBanner}>
+        <View style={styles.headerLeft}>
+          <View style={styles.triangleMarker} />
+          <Text style={styles.headerTitle}>PRODUCT COMPARISON</Text>
         </View>
-        <Text style={styles.chevron}>{expanded ? '▴' : '▾'}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.toggleTag}
+          activeOpacity={0.85}
+          onPress={() => setExpanded((v) => !v)}
+        >
+          <Text style={styles.toggleTagText}>{expanded ? 'COLLAPSE ▴' : 'OPEN ▾'}</Text>
+        </TouchableOpacity>
+      </View>
 
-      {expanded ? (
-        <View style={styles.contentWrap}>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter product name or barcode..."
-              placeholderTextColor={C.muted}
-              value={targetQuery}
-              onChangeText={setTargetQuery}
-              editable={!loading}
-              onSubmitEditing={() => handleCompare(targetQuery)}
-            />
-            <TouchableOpacity
-              style={[styles.compareBtn, !targetQuery.trim() || loading ? styles.btnDisabled : null]}
-              onPress={() => handleCompare(targetQuery)}
-              disabled={!targetQuery.trim() || loading}
-            >
-              <Text style={styles.compareBtnText}>Compare</Text>
-            </TouchableOpacity>
-          </View>
+      <View style={styles.cardContent}>
+        <Text style={styles.cardSubtitle}>
+          Compare this product head-to-head with any other item or common benchmark
+        </Text>
 
-          <View style={styles.chipsRow}>
-            {COMPARE_SUGGESTIONS.map((s, idx) => (
+        {/* Suggestion Chips */}
+        <View style={styles.suggestionsRow}>
+          <Text style={styles.suggestLabel}>BENCHMARKS:</Text>
+          <View style={styles.chipsWrap}>
+            {COMPARE_SUGGESTIONS.map((item, idx) => (
               <TouchableOpacity
                 key={idx}
                 style={styles.chip}
+                activeOpacity={0.8}
                 onPress={() => {
-                  setTargetQuery(s);
-                  handleCompare(s);
+                  setTargetQuery(item);
+                  handleCompare(item);
                 }}
-                disabled={loading}
               >
-                <Text style={styles.chipText}>{s}</Text>
+                <Text style={styles.chipText}>{item}</Text>
               </TouchableOpacity>
             ))}
           </View>
-
-          {loading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator color={C.sage} size="small" />
-              <Text style={styles.loadingText}>Comparing nutrition and scores...</Text>
-            </View>
-          ) : null}
-
-          {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠️ {error}</Text>
-            </View>
-          ) : null}
-
-          {comparison && a && b ? (
-            <View style={styles.resultsWrap}>
-              <View style={styles.tableHeader}>
-                <View style={styles.colA}>
-                  <Text style={styles.colTitle} numberOfLines={2}>{a.name || 'This Product'}</Text>
-                  {a.brand ? <Text style={styles.colBrand} numberOfLines={1}>{a.brand}</Text> : null}
-                  <View style={styles.badgeRow}>
-                    <View style={[styles.scoreBadge, { backgroundColor: aScore.bg }]}>
-                      <Text style={[styles.scoreBadgeText, { color: aScore.fg }]}>{aScore.text}</Text>
-                    </View>
-                    {a.nutriscore ? (
-                      <View style={[styles.nsBadge, { backgroundColor: _nutriscoreColor(a.nutriscore) }]}>
-                        <Text style={styles.nsText}>{String(a.nutriscore).toUpperCase()}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-
-                <View style={styles.colMid}>
-                  <Text style={styles.vsText}>VS</Text>
-                </View>
-
-                <View style={styles.colB}>
-                  <Text style={styles.colTitle} numberOfLines={2}>{b.name || targetQuery}</Text>
-                  {b.brand ? <Text style={styles.colBrand} numberOfLines={1}>{b.brand}</Text> : null}
-                  <View style={styles.badgeRow}>
-                    <View style={[styles.scoreBadge, { backgroundColor: bScore.bg }]}>
-                      <Text style={[styles.scoreBadgeText, { color: bScore.fg }]}>{bScore.text}</Text>
-                    </View>
-                    {b.nutriscore ? (
-                      <View style={[styles.nsBadge, { backgroundColor: _nutriscoreColor(b.nutriscore) }]}>
-                        <Text style={styles.nsText}>{String(b.nutriscore).toUpperCase()}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.metricsTable}>
-                {metrics.map((m, idx) => {
-                  const valA = m.a != null ? `${m.a} ${m.unit}` : '—';
-                  const valB = m.b != null ? `${m.b} ${m.unit}` : '—';
-                  return (
-                    <View key={idx} style={[styles.tableRow, idx % 2 === 0 ? styles.tableRowAlt : null]}>
-                      <Text style={styles.metricA}>{valA}</Text>
-                      <Text style={styles.metricLabel}>{m.label}</Text>
-                      <Text style={styles.metricB}>{valB}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-
-              {reasons.length > 0 ? (
-                <View style={styles.reasonsBox}>
-                  <Text style={styles.reasonsTitle}>Key Nutritional Differences:</Text>
-                  {reasons.map((r, rIdx) => (
-                    <Text key={rIdx} style={styles.reasonItem}>• {r}</Text>
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          ) : null}
         </View>
-      ) : null}
+
+        {/* Search input + Compare Button */}
+        <View style={styles.inputRow}>
+          <View style={[styles.searchBox, NEO_SHADOWS.sm]}>
+            <TextInput
+              style={styles.input}
+              placeholder="Barcode or product name..."
+              placeholderTextColor={NEO_COLORS.muted}
+              value={targetQuery}
+              onChangeText={setTargetQuery}
+              onSubmitEditing={() => handleCompare()}
+              returnKeyType="search"
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.compareBtn, NEO_SHADOWS.sm, loading && styles.compareBtnDisabled]}
+            activeOpacity={0.85}
+            onPress={() => handleCompare()}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={NEO_COLORS.ink} size="small" />
+            ) : (
+              <Text style={styles.compareBtnText}>VS</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {error ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>⚠️ {error}</Text>
+          </View>
+        ) : null}
+
+        {/* Comparison Output */}
+        {expanded && comparison ? (
+          <View style={styles.compareResultWrap}>
+            {/* Dual Column Headers */}
+            <View style={styles.dualHeaderRow}>
+              <View style={[styles.productPillar, { borderRightWidth: 1.5, borderRightColor: NEO_COLORS.border }]}>
+                <View style={[styles.prodBadge, { backgroundColor: NEO_COLORS.cyan }]}>
+                  <Text style={styles.prodBadgeText}>CURRENT</Text>
+                </View>
+                <Text style={styles.pillarName} numberOfLines={2}>{a?.product_name || 'Current Item'}</Text>
+                <View style={[styles.scoreBadge, { backgroundColor: aScore.bg }]}>
+                  <Text style={[styles.scoreBadgeText, { color: aScore.fg }]}>SCORE: {aScore.text}</Text>
+                </View>
+              </View>
+
+              <View style={styles.productPillar}>
+                <View style={[styles.prodBadge, { backgroundColor: NEO_COLORS.pink }]}>
+                  <Text style={styles.prodBadgeText}>COMPARISON</Text>
+                </View>
+                <Text style={styles.pillarName} numberOfLines={2}>{b?.product_name || 'Target Item'}</Text>
+                <View style={[styles.scoreBadge, { backgroundColor: bScore.bg }]}>
+                  <Text style={[styles.scoreBadgeText, { color: bScore.fg }]}>SCORE: {bScore.text}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Metrics Table */}
+            <View style={styles.table}>
+              <View style={styles.tableHeaderRow}>
+                <Text style={[styles.colLabel, { flex: 1.2 }]}>NUTRIENT (PER 100G)</Text>
+                <Text style={[styles.colValueHeader, { flex: 1 }]}>CURRENT</Text>
+                <Text style={[styles.colValueHeader, { flex: 1 }]}>TARGET</Text>
+              </View>
+
+              {metrics.map((m, idx) => {
+                const valA = m.a !== undefined && m.a !== null ? `${m.a} ${m.unit}` : '—';
+                const valB = m.b !== undefined && m.b !== null ? `${m.b} ${m.unit}` : '—';
+                return (
+                  <View key={idx} style={[styles.tableRow, idx % 2 === 1 && { backgroundColor: NEO_COLORS.bgAlt }]}>
+                    <Text style={[styles.rowLabel, { flex: 1.2 }]}>{m.label}</Text>
+                    <Text style={[styles.rowVal, { flex: 1 }]}>{valA}</Text>
+                    <Text style={[styles.rowVal, { flex: 1 }]}>{valB}</Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Algorithmic Reasons */}
+            {reasons.length > 0 ? (
+              <View style={styles.reasonsBox}>
+                <Text style={styles.reasonsTitle}>KEY NUTRITIONAL DIFFERENCES:</Text>
+                {reasons.map((r, idx) => (
+                  <Text key={idx} style={styles.reasonLine}>→ {String(r)}</Text>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 12,
-    backgroundColor: C.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 16,
+    marginTop: 14,
+    backgroundColor: NEO_COLORS.white,
+    borderRadius: NEO_RADIUS.md,
+    borderWidth: NEO_BORDERS.thick,
+    borderColor: NEO_COLORS.border,
+    overflow: 'hidden',
   },
-  headerRow: {
+  headerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    backgroundColor: NEO_COLORS.orange,
+    borderBottomWidth: NEO_BORDERS.thick,
+    borderBottomColor: NEO_COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: C.ink,
-  },
-  cardSubtitle: {
-    marginTop: 4,
-    color: C.muted,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chevron: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: C.ink,
-  },
-  contentWrap: {
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 12,
-  },
-  inputRow: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  input: {
-    flex: 1,
-    backgroundColor: C.white,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  triangleMarker: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderBottomWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: NEO_COLORS.ink,
+  },
+  headerTitle: {
     fontSize: 13,
-    color: C.ink,
-    fontWeight: '600',
-  },
-  compareBtn: {
-    backgroundColor: C.sage,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  btnDisabled: {
-    opacity: 0.5,
-  },
-  compareBtnText: {
-    color: C.white,
     fontWeight: '900',
-    fontSize: 13,
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.5,
   },
-  chipsRow: {
+  toggleTag: {
+    backgroundColor: NEO_COLORS.white,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.xs,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  toggleTagText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+  },
+  cardContent: {
+    padding: 14,
+  },
+  cardSubtitle: {
+    color: NEO_COLORS.muted,
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  suggestionsRow: {
+    marginBottom: 10,
+  },
+  suggestLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.muted,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginTop: 8,
-    marginBottom: 6,
   },
   chip: {
-    backgroundColor: C.cream,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: C.border,
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   chipText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: C.ink,
+    fontWeight: '800',
+    color: NEO_COLORS.ink,
   },
-  loadingBox: {
+  inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
-    marginTop: 10,
-  },
-  loadingText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: C.muted,
-  },
-  errorBox: {
-    marginTop: 10,
-    backgroundColor: C.redLight,
-    padding: 8,
-    borderRadius: 8,
-  },
-  errorText: {
-    color: '#8c1a0a',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  resultsWrap: {
-    marginTop: 12,
-    backgroundColor: C.cream,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 12,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  colA: {
-    flex: 1,
-  },
-  colMid: {
-    paddingHorizontal: 8,
     alignItems: 'center',
   },
-  colB: {
+  searchBox: {
     flex: 1,
-    alignItems: 'flex-end',
+    backgroundColor: NEO_COLORS.white,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.sm,
+    paddingHorizontal: 10,
   },
-  colTitle: {
+  input: {
+    paddingVertical: 8,
     fontSize: 13,
-    fontWeight: '900',
-    color: C.ink,
-  },
-  colBrand: {
-    fontSize: 10,
-    color: C.muted,
     fontWeight: '700',
-    marginTop: 1,
+    color: NEO_COLORS.ink,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  scoreBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  scoreBadgeText: {
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  nsBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
+  compareBtn: {
+    backgroundColor: NEO_COLORS.yellow,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nsText: {
-    color: C.white,
+  compareBtnDisabled: {
+    opacity: 0.6,
+  },
+  compareBtnText: {
+    fontSize: 13,
     fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.5,
+  },
+  errorBox: {
+    marginTop: 10,
+    backgroundColor: NEO_COLORS.status.avoidBg,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    padding: 8,
+    borderRadius: NEO_RADIUS.sm,
+  },
+  errorText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: NEO_COLORS.ink,
+  },
+  compareResultWrap: {
+    marginTop: 14,
+    borderTopWidth: NEO_BORDERS.regular,
+    borderTopColor: NEO_COLORS.border,
+    paddingTop: 12,
+  },
+  dualHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: NEO_COLORS.white,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.sm,
+    overflow: 'hidden',
+  },
+  productPillar: {
+    flex: 1,
+    padding: 10,
+    alignItems: 'center',
+  },
+  prodBadge: {
+    borderWidth: 1,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginBottom: 4,
+  },
+  prodBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+  },
+  pillarName: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    textAlign: 'center',
+    minHeight: 34,
+  },
+  scoreBadge: {
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 4,
+  },
+  scoreBadgeText: {
     fontSize: 10,
-  },
-  vsText: {
-    fontSize: 12,
     fontWeight: '900',
-    color: C.muted,
   },
-  metricsTable: {
-    marginTop: 8,
+  table: {
+    marginTop: 10,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.sm,
+    overflow: 'hidden',
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: NEO_COLORS.ink,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  colLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.white,
+    letterSpacing: 0.3,
+  },
+  colValueHeader: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.white,
+    textAlign: 'center',
   },
   tableRow: {
     flexDirection: 'row',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: NEO_COLORS.mutedLight,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 5,
-    paddingHorizontal: 4,
   },
-  tableRowAlt: {
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    borderRadius: 6,
-  },
-  metricA: {
-    flex: 1,
+  rowLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: C.ink,
+    color: NEO_COLORS.ink,
   },
-  metricLabel: {
-    flex: 1,
+  rowVal: {
     fontSize: 11,
-    fontWeight: '700',
-    color: C.muted,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
     textAlign: 'center',
-  },
-  metricB: {
-    flex: 1,
-    fontSize: 11,
-    fontWeight: '800',
-    color: C.ink,
-    textAlign: 'right',
   },
   reasonsBox: {
     marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 8,
+    backgroundColor: NEO_COLORS.purpleLight,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.sm,
+    padding: 10,
   },
   reasonsTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
-    color: C.ink,
+    color: NEO_COLORS.ink,
     marginBottom: 4,
+    letterSpacing: 0.5,
   },
-  reasonItem: {
+  reasonLine: {
     fontSize: 11,
-    color: C.ink,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: NEO_COLORS.ink,
     lineHeight: 16,
   },
 });

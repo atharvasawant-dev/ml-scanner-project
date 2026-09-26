@@ -2,29 +2,18 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 
 import { getNetworkErrorMessage, login, register } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-
-const C = {
-  cream: '#F5F2EC',
-  ink: '#1A1A17',
-  sage: '#4E8C52',
-  sageLight: '#C3D9C5',
-  amberLight: '#F0D9A8',
-  redLight: '#F0C8C0',
-  border: '#DDD8CE',
-  muted: '#888179',
-  white: '#FFFFFF',
-  red: '#B83C28',
-};
+import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../theme/neoTheme';
+import { NeoCard, NeoButton, NeoInput, NeoBadge } from '../components/neo';
 
 export default function LoginScreen() {
   const { login: authLogin } = useAuth();
@@ -36,7 +25,7 @@ export default function LoginScreen() {
 
   const onSubmit = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Missing info', 'Email and password are required');
+      Alert.alert('Missing Info', 'Email and password are required');
       return;
     }
 
@@ -57,7 +46,7 @@ export default function LoginScreen() {
       await authLogin(token);
     } catch (e) {
       const msg = getNetworkErrorMessage(e) || 'Authentication failed';
-      Alert.alert('Error', String(msg));
+      Alert.alert('Authentication Error', String(msg));
     } finally {
       setLoading(false);
     }
@@ -69,76 +58,96 @@ export default function LoginScreen() {
         style={styles.kb}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text style={styles.heroTitle}>FoodScanner AI</Text>
-        <Text style={styles.heroSubtitle}>Scan smarter. Eat healthier.</Text>
-
-        <View style={styles.card}>
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={[styles.toggleBtn, mode === 'login' && styles.toggleBtnActive]}
-              onPress={() => setMode('login')}
-              disabled={loading}
-            >
-              <Text style={[styles.toggleText, mode === 'login' && styles.toggleTextActive]}>Login</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toggleBtn, mode === 'register' && styles.toggleBtnActive]}
-              onPress={() => setMode('register')}
-              disabled={loading}
-            >
-              <Text style={[styles.toggleText, mode === 'register' && styles.toggleTextActive]}>Register</Text>
-            </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Brand Sticker */}
+          <View style={styles.brandRow}>
+            <NeoBadge text="VERIFIED INTELLIGENCE" variant="yellow" />
+            <Text style={styles.brandTag}>⚡ BATCH 9B</Text>
           </View>
 
-          {mode === 'register' ? (
-            <View style={styles.inputWrap}>
-              <TextInput
-                style={styles.input}
-                placeholder="Name"
-                placeholderTextColor="#777"
+          <Text style={styles.heroTitle}>PRAMAAN</Text>
+          <Text style={styles.heroSubtitle}>
+            Scan Smarter • Decode Ingredients • Eat Verified
+          </Text>
+
+          {/* Form Card */}
+          <NeoCard variant="white" elevation="lg" style={styles.card}>
+            {/* Chunky Tab Toggle */}
+            <View style={styles.toggleRow}>
+              <TouchableOpacity
+                style={[styles.toggleBtn, mode === 'login' && styles.toggleBtnActive]}
+                onPress={() => setMode('login')}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.toggleText, mode === 'login' && styles.toggleTextActive]}>
+                  LOG IN
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleBtn, mode === 'register' && styles.toggleBtnActive]}
+                onPress={() => setMode('register')}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.toggleText, mode === 'register' && styles.toggleTextActive]}>
+                  REGISTER
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {mode === 'register' ? (
+              <NeoInput
+                label="Full Name"
+                placeholder="Enter your name"
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"
                 editable={!loading}
               />
-            </View>
-          ) : null}
+            ) : null}
 
-          <View style={styles.inputWrap}>
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#777"
+            <NeoInput
+              label="Email Address"
+              placeholder="e.g. user@pramaan.ai"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
               editable={!loading}
             />
-          </View>
 
-          <View style={styles.inputWrap}>
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#777"
+            <NeoInput
+              label="Password"
+              placeholder="Enter secure password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               editable={!loading}
             />
-          </View>
 
-          <TouchableOpacity style={styles.submitBtn} onPress={onSubmit} disabled={loading}>
-            <Text style={styles.submitText}>
-              {loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Create account'}
-            </Text>
-          </TouchableOpacity>
+            <NeoButton
+              title={loading ? 'VERIFYING...' : mode === 'login' ? 'LOG IN TO PRAMAAN' : 'CREATE VERIFIED ACCOUNT'}
+              variant="coral"
+              size="lg"
+              onPress={onSubmit}
+              disabled={loading}
+              style={styles.submitBtn}
+            />
 
-          <Text style={styles.note}>
-            Create an account or sign in to start scanning.
-          </Text>
-        </View>
+            {/* Neo-brutalist footnote badge */}
+            <View style={styles.infoBox}>
+              <Text style={styles.infoIcon}>🛡️</Text>
+              <Text style={styles.infoText}>
+                Statutory claim verification & evidence-based health scoring engine.
+              </Text>
+            </View>
+          </NeoCard>
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
@@ -147,92 +156,104 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: C.cream,
+    backgroundColor: NEO_COLORS.bg,
   },
   kb: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+    maxWidth: 440,
     width: '100%',
     alignSelf: 'center',
-    maxWidth: 420,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  brandTag: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.5,
   },
   heroTitle: {
-    color: C.ink,
-    fontSize: 34,
+    fontSize: 38,
     fontWeight: '900',
+    color: NEO_COLORS.ink,
     textAlign: 'center',
-    letterSpacing: 0.3,
+    letterSpacing: -1,
+    marginBottom: 4,
   },
   heroSubtitle: {
-    color: C.muted,
+    fontSize: 13,
+    fontWeight: '700',
+    color: NEO_COLORS.muted,
     textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 18,
-    fontSize: 14,
-    letterSpacing: 0.2,
+    marginBottom: 20,
   },
   card: {
-    backgroundColor: C.white,
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: C.border,
+    padding: 20,
   },
   toggleRow: {
     flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: 'transparent',
-    borderRadius: 999,
-    overflow: 'hidden',
-    marginBottom: 12,
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.md,
+    padding: 3,
+    marginBottom: 16,
   },
   toggleBtn: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 999,
+    borderRadius: NEO_RADIUS.sm,
   },
   toggleBtnActive: {
-    backgroundColor: C.ink,
+    backgroundColor: NEO_COLORS.yellow,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    ...NEO_SHADOWS.sm,
   },
   toggleText: {
+    fontSize: 12,
     fontWeight: '800',
-    color: C.ink,
+    color: NEO_COLORS.muted,
+    letterSpacing: 0.5,
   },
   toggleTextActive: {
-    color: C.white,
-  },
-  inputWrap: {
-    backgroundColor: C.white,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  input: {
-    color: C.ink,
-    fontWeight: '600',
+    color: NEO_COLORS.ink,
+    fontWeight: '900',
   },
   submitBtn: {
-    marginTop: 16,
-    backgroundColor: C.ink,
-    paddingVertical: 14,
-    borderRadius: 10,
+    marginTop: 8,
+  },
+  infoBox: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 16,
+    gap: 8,
   },
-  submitText: {
-    color: C.white,
-    fontWeight: '900',
+  infoIcon: {
     fontSize: 16,
-    letterSpacing: 0.6,
   },
-  note: {
-    marginTop: 12,
-    color: C.muted,
-    fontSize: 12,
-    textAlign: 'center',
+  infoText: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: NEO_COLORS.muted,
+    lineHeight: 15,
   },
 });

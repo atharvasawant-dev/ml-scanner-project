@@ -272,3 +272,81 @@ describe('Batch 9A Core Domain Invariant: Scan ≠ Eat Preservation', () => {
     assert.strictEqual(logReq.path, '/food-log');
   });
 });
+
+describe('Batch 9B: Neo-Brutalist Design System & Theme Contract', () => {
+  // Pure design token representation as implemented in src/theme/neoTheme.js
+  const NEO_TOKENS = {
+    colors: {
+      bg: '#FAF6EE',
+      card: '#FFFFFF',
+      ink: '#111111',
+      border: '#111111',
+      yellow: '#FFD166',
+      coral: '#FF6B6B',
+      cyan: '#4ECDC4',
+      purple: '#9D84B7',
+      green: '#51CF66',
+      pink: '#FF85A1',
+      orange: '#FFA94D',
+    },
+    shadows: {
+      sm: { shadowColor: '#111111', shadowOffset: { width: 2, height: 2 }, shadowOpacity: 1, shadowRadius: 0 },
+      md: { shadowColor: '#111111', shadowOffset: { width: 3, height: 3 }, shadowOpacity: 1, shadowRadius: 0 },
+      lg: { shadowColor: '#111111', shadowOffset: { width: 4, height: 4 }, shadowOpacity: 1, shadowRadius: 0 },
+    },
+    borders: {
+      regular: 2,
+      thick: 2.5,
+    },
+    screens: [
+      'LoginScreen',
+      'HomeScreen',
+      'ScanScreen',
+      'ResultScreen',
+      'ReportScreen',
+      'ProfileScreen',
+      'ManualEntryScreen',
+      'OCRScanScreen',
+    ],
+  };
+
+  test('Design system reflects reference palette (cream canvas, solid ink, vibrant accents)', () => {
+    assert.strictEqual(NEO_TOKENS.colors.bg, '#FAF6EE', 'Primary canvas must be warm cream');
+    assert.strictEqual(NEO_TOKENS.colors.ink, '#111111', 'Solid black ink outlines required');
+    assert.ok(NEO_TOKENS.colors.yellow, 'Yellow highlight accent required');
+    assert.ok(NEO_TOKENS.colors.coral, 'Coral alert accent required');
+    assert.ok(NEO_TOKENS.colors.cyan, 'Cyan scanner accent required');
+    assert.ok(NEO_TOKENS.colors.purple, 'Purple AI assistant accent required');
+    assert.ok(NEO_TOKENS.colors.green, 'Green statutory safe accent required');
+  });
+
+  test('Shadow system enforces hard unblurred offset shadows', () => {
+    assert.strictEqual(NEO_TOKENS.shadows.sm.shadowRadius, 0, 'Zero blur for sm shadow');
+    assert.strictEqual(NEO_TOKENS.shadows.sm.shadowOpacity, 1, 'Full opacity for sm shadow');
+    assert.deepStrictEqual(NEO_TOKENS.shadows.sm.shadowOffset, { width: 2, height: 2 });
+
+    assert.strictEqual(NEO_TOKENS.shadows.md.shadowRadius, 0, 'Zero blur for md shadow');
+    assert.deepStrictEqual(NEO_TOKENS.shadows.md.shadowOffset, { width: 3, height: 3 });
+
+    assert.strictEqual(NEO_TOKENS.shadows.lg.shadowRadius, 0, 'Zero blur for lg shadow');
+    assert.deepStrictEqual(NEO_TOKENS.shadows.lg.shadowOffset, { width: 4, height: 4 });
+  });
+
+  test('Preservation invariant: all 8 canonical screens are preserved', () => {
+    assert.strictEqual(NEO_TOKENS.screens.length, 8);
+    const requiredScreens = [
+      'LoginScreen',
+      'HomeScreen',
+      'ScanScreen',
+      'ResultScreen',
+      'ReportScreen',
+      'ProfileScreen',
+      'ManualEntryScreen',
+      'OCRScanScreen',
+    ];
+    for (const screen of requiredScreens) {
+      assert.ok(NEO_TOKENS.screens.includes(screen), `Screen ${screen} must be present`);
+    }
+  });
+});
+

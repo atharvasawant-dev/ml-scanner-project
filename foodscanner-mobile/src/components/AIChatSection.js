@@ -1,19 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { askNutritionAssistant } from '../services/api';
-
-const C = {
-  cream: '#F5F2EC',
-  ink: '#1A1A17',
-  sage: '#4E8C52',
-  sageLight: '#C3D9C5',
-  amberLight: '#F0D9A8',
-  redLight: '#F0C8C0',
-  border: '#DDD8CE',
-  muted: '#888179',
-  white: '#FFFFFF',
-  red: '#B83C28',
-};
+import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../theme/neoTheme';
 
 const SUGGESTED_QUESTIONS = [
   'Is this good for weight loss?',
@@ -62,7 +50,7 @@ export default function AIChatSection({
 
       const assistantMsg = {
         role: 'assistant',
-        content: res?.answer || 'No response returned.',
+        content: res?.answer || res?.reply || 'No response returned.',
         sources: Array.isArray(res?.sources) ? res.sources : [],
         disclaimer: res?.disclaimer || null,
       };
@@ -83,298 +71,380 @@ export default function AIChatSection({
   };
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, NEO_SHADOWS.md]}>
+      {/* Neo-Brutalist Purple Banner */}
       <TouchableOpacity
-        style={styles.headerRow}
+        style={styles.headerBanner}
+        activeOpacity={0.85}
         onPress={() => setExpanded((v) => !v)}
       >
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>🤖 AI Nutrition Assistant</Text>
-          <Text style={styles.cardSubtitle}>
-            Grounded Q&A using official ICMR, WHO & FSSAI nutrition guidelines
-          </Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.circleMarker} />
+          <Text style={styles.headerTitle}>AI NUTRITION ASSISTANT</Text>
         </View>
-        <Text style={styles.chevron}>{expanded ? '▴' : '▾'}</Text>
+        <View style={styles.toggleTag}>
+          <Text style={styles.toggleTagText}>{expanded ? 'COLLAPSE ▴' : 'ASK AI ▾'}</Text>
+        </View>
       </TouchableOpacity>
 
-      {expanded ? (
-        <View style={styles.contentWrap}>
-          {messages.length === 0 ? (
-            <View style={styles.suggestionsWrap}>
-              <Text style={styles.suggestTitle}>Suggested Questions:</Text>
+      <View style={styles.cardContent}>
+        <Text style={styles.cardSubtitle}>
+          Grounded Q&A using official ICMR, WHO & FSSAI nutrition guidelines
+        </Text>
+
+        {expanded ? (
+          <View style={styles.chatSection}>
+            {/* Suggested prompts */}
+            <View style={styles.suggestWrap}>
+              <Text style={styles.suggestLabel}>SUGGESTED QUESTIONS:</Text>
               <View style={styles.chipsRow}>
                 {SUGGESTED_QUESTIONS.map((q, idx) => (
                   <TouchableOpacity
                     key={idx}
-                    style={styles.chip}
+                    style={styles.suggestChip}
+                    activeOpacity={0.8}
                     onPress={() => handleSend(q)}
-                    disabled={loading}
                   >
-                    <Text style={styles.chipText}>{q}</Text>
+                    <Text style={styles.suggestText}>{q}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
-          ) : null}
 
-          {messages.length > 0 ? (
-            <View style={styles.messagesList}>
+            {/* Messages */}
+            <View style={styles.messagesWrap}>
+              {messages.length === 0 ? (
+                <View style={styles.emptyPrompt}>
+                  <Text style={styles.emptyPromptText}>
+                    Ask anything about this food's ingredients, allergens, or diet suitability!
+                  </Text>
+                </View>
+              ) : null}
+
               {messages.map((m, idx) => {
                 const isUser = m.role === 'user';
                 return (
                   <View
                     key={idx}
                     style={[
-                      styles.bubbleWrap,
-                      isUser ? styles.userBubbleWrap : styles.assistantBubbleWrap,
+                      styles.bubble,
+                      isUser ? styles.userBubble : styles.assistantBubble,
+                      NEO_SHADOWS.sm,
                     ]}
                   >
-                    <View
-                      style={[
-                        styles.bubble,
-                        isUser ? styles.userBubble : styles.assistantBubble,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.bubbleText,
-                          isUser ? styles.userBubbleText : styles.assistantBubbleText,
-                        ]}
-                      >
-                        {m.content}
-                      </Text>
+                    <View style={styles.bubbleHeader}>
+                      <Text style={styles.bubbleSender}>{isUser ? 'YOU' : 'PRAMAAN AI'}</Text>
+                    </View>
+                    <Text style={styles.bubbleText}>{m.content}</Text>
 
-                      {!isUser && Array.isArray(m.sources) && m.sources.length > 0 ? (
-                        <View style={styles.sourcesBox}>
-                          <Text style={styles.sourcesTitle}>Sources:</Text>
+                    {m.sources && m.sources.length > 0 ? (
+                      <View style={styles.sourcesBox}>
+                        <Text style={styles.sourcesTitle}>EVIDENCE SOURCES:</Text>
+                        <View style={styles.sourcesRow}>
                           {m.sources.map((s, sIdx) => {
-                            const title = s?.title || s?.source || `Source #${sIdx + 1}`;
-                            const type = s?.source_type ? ` (${s.source_type})` : '';
+                            const name = typeof s === 'string' ? s : s?.title || s?.source || `Ref #${sIdx + 1}`;
                             return (
-                              <Text key={sIdx} style={styles.sourceItem}>
-                                • {title}{type}
-                              </Text>
+                              <View key={sIdx} style={styles.sourceTag}>
+                                <Text style={styles.sourceTagText}>📖 {name}</Text>
+                              </View>
                             );
                           })}
                         </View>
-                      ) : null}
-                    </View>
+                      </View>
+                    ) : null}
+
+                    {m.disclaimer ? (
+                      <Text style={styles.msgDisclaimer}>{m.disclaimer}</Text>
+                    ) : null}
                   </View>
                 );
               })}
-            </View>
-          ) : null}
 
-          {loading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={C.sage} size="small" />
-              <Text style={styles.loadingText}>PRAMAAN AI is thinking...</Text>
+              {loading ? (
+                <View style={styles.loadingBubble}>
+                  <ActivityIndicator color={NEO_COLORS.ink} size="small" />
+                  <Text style={styles.loadingText}>Synthesizing clinical & statutory nutrition context...</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
 
-          {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠️ {error}</Text>
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>⚠️ {error}</Text>
+              </View>
+            ) : null}
+
+            {/* Input Bar */}
+            <View style={styles.inputBar}>
+              <View style={[styles.inputBox, NEO_SHADOWS.sm]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ask a question..."
+                  placeholderTextColor={NEO_COLORS.muted}
+                  value={query}
+                  onChangeText={setQuery}
+                  onSubmitEditing={() => handleSend()}
+                  returnKeyType="send"
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.sendBtn, NEO_SHADOWS.sm, (!query.trim() || loading) && styles.sendBtnDisabled]}
+                activeOpacity={0.85}
+                onPress={() => handleSend()}
+                disabled={!query.trim() || loading}
+              >
+                <Text style={styles.sendBtnText}>SEND</Text>
+              </TouchableOpacity>
             </View>
-          ) : null}
-
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              placeholder="Ask about this food..."
-              placeholderTextColor={C.muted}
-              value={query}
-              onChangeText={setQuery}
-              editable={!loading}
-              onSubmitEditing={() => handleSend(query)}
-              returnKeyType="send"
-            />
-            <TouchableOpacity
-              style={[styles.sendBtn, !query.trim() || loading ? styles.sendBtnDisabled : null]}
-              onPress={() => handleSend(query)}
-              disabled={!query.trim() || loading}
-            >
-              <Text style={styles.sendBtnText}>Send</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 12,
-    backgroundColor: C.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 16,
+    marginTop: 14,
+    backgroundColor: NEO_COLORS.white,
+    borderRadius: NEO_RADIUS.md,
+    borderWidth: NEO_BORDERS.thick,
+    borderColor: NEO_COLORS.border,
+    overflow: 'hidden',
   },
-  headerRow: {
+  headerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: NEO_COLORS.purple,
+    borderBottomWidth: NEO_BORDERS.thick,
+    borderBottomColor: NEO_COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  cardTitle: {
-    fontSize: 16,
+  circleMarker: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: NEO_COLORS.white,
+    borderWidth: 1,
+    borderColor: NEO_COLORS.border,
+  },
+  headerTitle: {
+    fontSize: 13,
     fontWeight: '900',
-    color: C.ink,
+    color: NEO_COLORS.white,
+    letterSpacing: 0.5,
+  },
+  toggleTag: {
+    backgroundColor: NEO_COLORS.white,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.xs,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  toggleTagText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+  },
+  cardContent: {
+    padding: 14,
   },
   cardSubtitle: {
-    marginTop: 4,
-    color: C.muted,
+    color: NEO_COLORS.muted,
     fontSize: 12,
     fontWeight: '600',
+    lineHeight: 17,
   },
-  chevron: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: C.ink,
-  },
-  contentWrap: {
+  chatSection: {
     marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 12,
   },
-  suggestionsWrap: {
+  suggestWrap: {
     marginBottom: 10,
   },
-  suggestTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: C.muted,
+  suggestLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.muted,
     marginBottom: 6,
+    letterSpacing: 0.4,
   },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
-  chip: {
-    backgroundColor: C.cream,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: C.border,
+  suggestChip: {
+    backgroundColor: NEO_COLORS.purpleLight,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  chipText: {
+  suggestText: {
     fontSize: 11,
+    fontWeight: '800',
+    color: NEO_COLORS.ink,
+  },
+  messagesWrap: {
+    gap: 10,
+    marginVertical: 10,
+  },
+  emptyPrompt: {
+    padding: 12,
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderRadius: NEO_RADIUS.sm,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderStyle: 'dashed',
+  },
+  emptyPromptText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: C.ink,
-  },
-  messagesList: {
-    marginBottom: 10,
-    gap: 8,
-  },
-  bubbleWrap: {
-    flexDirection: 'row',
-  },
-  userBubbleWrap: {
-    justifyContent: 'flex-end',
-  },
-  assistantBubbleWrap: {
-    justifyContent: 'flex-start',
+    color: NEO_COLORS.muted,
+    textAlign: 'center',
+    lineHeight: 17,
   },
   bubble: {
-    maxWidth: '90%',
-    borderRadius: 14,
-    padding: 10,
+    borderRadius: NEO_RADIUS.sm,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    padding: 12,
   },
   userBubble: {
-    backgroundColor: C.ink,
+    backgroundColor: NEO_COLORS.yellow,
+    alignSelf: 'flex-end',
+    maxWidth: '90%',
   },
   assistantBubble: {
-    backgroundColor: C.cream,
-    borderWidth: 1,
-    borderColor: C.border,
+    backgroundColor: NEO_COLORS.white,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  bubbleHeader: {
+    marginBottom: 4,
+  },
+  bubbleSender: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: NEO_COLORS.muted,
+    letterSpacing: 0.5,
   },
   bubbleText: {
     fontSize: 13,
-    lineHeight: 18,
-  },
-  userBubbleText: {
-    color: C.white,
     fontWeight: '700',
-  },
-  assistantBubbleText: {
-    color: C.ink,
-    fontWeight: '600',
+    color: NEO_COLORS.ink,
+    lineHeight: 18,
   },
   sourcesBox: {
     marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 6,
+    borderTopColor: NEO_COLORS.bgAlt,
   },
   sourcesTitle: {
-    fontSize: 11,
+    fontSize: 9,
+    fontWeight: '900',
+    color: NEO_COLORS.muted,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  sourcesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  sourceTag: {
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderWidth: 1,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  sourceTagText: {
+    fontSize: 9,
     fontWeight: '800',
-    color: C.muted,
+    color: NEO_COLORS.ink,
   },
-  sourceItem: {
-    fontSize: 10,
-    color: C.muted,
-    fontWeight: '600',
-    marginTop: 2,
+  msgDisclaimer: {
+    marginTop: 6,
+    fontSize: 9,
+    fontStyle: 'italic',
+    color: NEO_COLORS.muted,
   },
-  loadingRow: {
+  loadingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
-    paddingVertical: 4,
+    padding: 10,
+    backgroundColor: NEO_COLORS.bgAlt,
+    borderRadius: NEO_RADIUS.sm,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
   },
   loadingText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: C.muted,
+    fontWeight: '800',
+    color: NEO_COLORS.ink,
   },
   errorBox: {
-    marginBottom: 8,
-    backgroundColor: C.redLight,
+    backgroundColor: NEO_COLORS.status.avoidBg,
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
     padding: 8,
-    borderRadius: 8,
+    borderRadius: NEO_RADIUS.sm,
+    marginBottom: 8,
   },
   errorText: {
-    color: '#8c1a0a',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
+    color: NEO_COLORS.ink,
   },
-  inputRow: {
+  inputBar: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
-    marginTop: 4,
+    alignItems: 'center',
+  },
+  inputBox: {
+    flex: 1,
+    backgroundColor: NEO_COLORS.white,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.sm,
+    paddingHorizontal: 10,
   },
   input: {
-    flex: 1,
-    backgroundColor: C.white,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    color: C.ink,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: NEO_COLORS.ink,
   },
   sendBtn: {
-    backgroundColor: C.sage,
-    paddingHorizontal: 14,
+    backgroundColor: NEO_COLORS.yellow,
+    borderWidth: NEO_BORDERS.regular,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.sm,
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sendBtnDisabled: {
     opacity: 0.5,
   },
   sendBtnText: {
-    color: C.white,
+    fontSize: 12,
     fontWeight: '900',
-    fontSize: 13,
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.5,
   },
 });
