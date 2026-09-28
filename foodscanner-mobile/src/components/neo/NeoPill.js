@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS } from '../../theme/neoTheme';
+import { PREMIUM_COLORS, PREMIUM_RADIUS } from '../../theme/premiumTheme';
 
 export default function NeoPill({
   label,
   children,
-  bg = NEO_COLORS.white,
-  color = NEO_COLORS.ink,
+  bg = PREMIUM_COLORS.card,
+  color = PREMIUM_COLORS.ink,
   style,
   textStyle,
 }) {
@@ -23,18 +23,18 @@ export default function NeoPill({
 
 const styles = StyleSheet.create({
   pill: {
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderRadius: PREMIUM_RADIUS.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'flex-start',
   },
   text: {
     fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.3,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
 });

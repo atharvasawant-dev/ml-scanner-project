@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS } from '../../theme/neoTheme';
+import { PREMIUM_COLORS, PREMIUM_RADIUS } from '../../theme/premiumTheme';
 
 export default function NeoSectionHeader({
   title,
@@ -8,8 +8,8 @@ export default function NeoSectionHeader({
   rightElement,
   tagText,
   count,
-  tagColor = 'lime',
-  markerColor = NEO_COLORS.lime,
+  tagColor = 'primary',
+  markerColor = PREMIUM_COLORS.primary,
   style,
 }) {
   const displayTag = tagText || count;
@@ -20,7 +20,7 @@ export default function NeoSectionHeader({
           <View style={[styles.marker, { backgroundColor: markerColor }]} />
           <Text style={styles.title}>{title}</Text>
           {displayTag ? (
-            <View style={[styles.tag, { backgroundColor: NEO_COLORS[tagColor] || NEO_COLORS.lime }]}>
+            <View style={[styles.tag, { backgroundColor: PREMIUM_COLORS.primaryLight }]}>
               <Text style={styles.tagText}>{displayTag}</Text>
             </View>
           ) : null}
@@ -34,7 +34,8 @@ export default function NeoSectionHeader({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 10,
+    marginBottom: 12,
+    marginTop: 4,
   },
   topRow: {
     flexDirection: 'row',
@@ -48,37 +49,31 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   marker: {
-    width: 10,
-    height: 10,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: 2,
-    transform: [{ rotate: '45deg' }],
+    width: 6,
+    height: 18,
+    borderRadius: 3,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: -0.2,
-    textTransform: 'uppercase',
+    fontSize: 18,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    letterSpacing: -0.3,
   },
   tag: {
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    borderRadius: PREMIUM_RADIUS.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   tagText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
+    fontSize: 11,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.primaryDark,
   },
   subtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: NEO_COLORS.muted,
+    fontSize: 13,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
     marginTop: 3,
-    paddingLeft: 18,
+    paddingLeft: 14,
   },
 });

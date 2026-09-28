@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getHealthierAlternatives } from '../services/api';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../theme/neoTheme';
+import { PREMIUM_COLORS, PREMIUM_SHADOWS, PREMIUM_RADIUS } from '../theme/premiumTheme';
+import { FoodImage } from './premium';
 
 function _nutriscoreColor(grade) {
   const g = String(grade || '').toLowerCase();
   if (g === 'a') return '#2E7D32';
   if (g === 'b') return '#689F38';
-  if (g === 'c') return '#FBC02D';
-  if (g === 'd') return '#EF6C00';
+  if (g === 'c') return '#D99B00';
+  if (g === 'd') return '#E66800';
   if (g === 'e') return '#C62828';
-  return NEO_COLORS.muted;
+  return PREMIUM_COLORS.secondary;
 }
 
 export default function HealthierAlternativesCard({
@@ -48,11 +50,15 @@ export default function HealthierAlternativesCard({
         nutrition: nutrition || null,
         limit: 3,
       });
-      const list = Array.isArray(res?.alternatives) ? res.alternatives : [];
+      const list = Array.isArray(res?.recommendations)
+        ? res.recommendations
+        : Array.isArray(res)
+          ? res
+          : [];
       setItems(list);
       setFetched(true);
     } catch (e) {
-      const msg = e?.response?.data?.detail || e?.message || 'Could not fetch alternatives';
+      const msg = e?.response?.data?.detail || e?.message || 'Failed to find alternatives';
       setError(String(msg));
     } finally {
       setLoading(false);
@@ -62,354 +68,273 @@ export default function HealthierAlternativesCard({
   const hasItems = items.length > 0;
 
   return (
-    <View style={[styles.card, NEO_SHADOWS.md]}>
-      {/* Neo-Brutalist Green Banner */}
-      <View style={styles.headerBanner}>
-        <View style={styles.headerLeft}>
-          <View style={styles.squareMarker} />
-          <Text style={styles.headerTitle}>HEALTHIER ALTERNATIVES</Text>
-        </View>
-        {hasItems ? (
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{items.length} FOUND</Text>
+    <View style={[styles.card, PREMIUM_SHADOWS.sm]}>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <View>
+          <View style={styles.badgeWrap}>
+            <Ionicons name="leaf-outline" size={12} color={PREMIUM_COLORS.primaryDark} />
+            <Text style={styles.badgeText}>SMART SWAPS</Text>
           </View>
-        ) : null}
+          <Text style={styles.title}>Healthier Alternatives</Text>
+          <Text style={styles.subtitle}>Nutritionally superior options in this category</Text>
+        </View>
+
+        {!hasItems && !fetched && (
+          <TouchableOpacity
+            style={styles.findBtn}
+            onPress={handleFetchAlternatives}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={PREMIUM_COLORS.primaryDark} />
+            ) : (
+              <Text style={styles.findBtnText}>Find Swaps →</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
-      <View style={styles.cardContent}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1, paddingRight: 8 }}>
-            <Text style={styles.cardSubtitle}>
-              {hasItems
-                ? `${items.length} category alternatives with higher nutritional balance found`
-                : 'Discover healthier alternatives with higher scores in this category'}
-            </Text>
-          </View>
-
-          {!hasItems && !loading ? (
-            <TouchableOpacity
-              style={[styles.findBtn, NEO_SHADOWS.sm]}
-              activeOpacity={0.85}
-              onPress={handleFetchAlternatives}
-            >
-              <Text style={styles.findBtnText}>FIND NOW</Text>
-            </TouchableOpacity>
-          ) : null}
+      {error ? (
+        <View style={styles.errorBox}>
+          <Ionicons name="alert-circle-outline" size={14} color={PREMIUM_COLORS.status.avoid} />
+          <Text style={styles.errorText}>{error}</Text>
         </View>
+      ) : null}
 
-        {loading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator color={NEO_COLORS.ink} size="small" />
-            <Text style={styles.loadingText}>Searching category for better nutritional options...</Text>
-          </View>
-        ) : null}
+      {/* Alternatives Horizontal Carousel */}
+      {hasItems ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollList}
+        >
+          {items.map((alt, idx) => {
+            const name = alt?.product_name || alt?.name || `Alternative ${idx + 1}`;
+            const score = alt?.health_score != null ? Math.round(Number(alt.health_score)) : null;
+            const nutriscore = alt?.nutriscore ? String(alt.nutriscore).toUpperCase() : null;
+            const advantages = Array.isArray(alt?.advantages) ? alt.advantages : [];
+            const shortReason = alt?.reason || (advantages.length > 0 ? advantages[0] : 'Better nutrient profile');
 
-        {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>⚠️ {error}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={handleFetchAlternatives}>
-              <Text style={styles.retryText}>RETRY</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+            return (
+              <TouchableOpacity
+                key={alt?.barcode || idx}
+                activeOpacity={0.88}
+                style={[styles.itemCard, PREMIUM_SHADOWS.sm]}
+                onPress={() => onSelectAlternative && onSelectAlternative(alt)}
+              >
+                <FoodImage
+                  source={alt?.image_url}
+                  productName={name}
+                  size={150}
+                  height={100}
+                  borderRadius={PREMIUM_RADIUS.md}
+                />
 
-        {hasItems ? (
-          <View style={styles.list}>
-            {items.map((item, idx) => {
-              const name = item?.product_name || item?.name || `Alternative #${idx + 1}`;
-              const brand = item?.brand || '';
-              const score = item?.health_score;
-              const nutriscore = item?.nutriscore;
-              const advantages = Array.isArray(item?.advantages) ? item.advantages : [];
+                <Text style={styles.itemName} numberOfLines={1}>
+                  {name}
+                </Text>
 
-              return (
-                <View key={idx} style={[styles.itemCard, NEO_SHADOWS.sm]}>
-                  <View style={styles.itemHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.itemName}>{name}</Text>
-                      {brand ? <Text style={styles.itemBrand}>{brand}</Text> : null}
-                    </View>
-
-                    <View style={styles.badgeRow}>
-                      {nutriscore ? (
-                        <View style={[styles.nutriPill, { backgroundColor: _nutriscoreColor(nutriscore) }]}>
-                          <Text style={styles.nutriText}>{String(nutriscore).toUpperCase()}</Text>
-                        </View>
-                      ) : null}
-
-                      {score !== undefined && score !== null ? (
-                        <View style={styles.scorePill}>
-                          <Text style={styles.scoreText}>{score}/100</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-
-                  {advantages.length > 0 ? (
-                    <View style={styles.advWrap}>
-                      {advantages.map((adv, aIdx) => (
-                        <View key={aIdx} style={styles.advBadge}>
-                          <Text style={styles.advText}>✓ {adv}</Text>
-                        </View>
-                      ))}
+                <View style={styles.itemMetaRow}>
+                  {score != null ? (
+                    <View style={styles.scorePill}>
+                      <View style={styles.scoreDot} />
+                      <Text style={styles.scoreVal}>Score {score}</Text>
                     </View>
                   ) : null}
 
-                  {onSelectAlternative ? (
-                    <TouchableOpacity
-                      style={styles.selectBtn}
-                      activeOpacity={0.85}
-                      onPress={() => onSelectAlternative(item)}
+                  {nutriscore ? (
+                    <View
+                      style={[
+                        styles.nutriscoreBadge,
+                        { backgroundColor: _nutriscoreColor(nutriscore) + '20' },
+                      ]}
                     >
-                      <Text style={styles.selectBtnText}>INSPECT THIS ALTERNATIVE →</Text>
-                    </TouchableOpacity>
+                      <Text
+                        style={[
+                          styles.nutriscoreText,
+                          { color: _nutriscoreColor(nutriscore) },
+                        ]}
+                      >
+                        Grade {nutriscore}
+                      </Text>
+                    </View>
                   ) : null}
                 </View>
-              );
-            })}
-          </View>
-        ) : null}
 
-        {fetched && !hasItems && !loading && !error ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>
-              No higher-scoring alternatives found in this specific food category.
-            </Text>
-          </View>
-        ) : null}
-      </View>
+                {shortReason ? (
+                  <View style={styles.advantagePill}>
+                    <Text style={styles.advantageText} numberOfLines={2}>
+                      ✓ {shortReason}
+                    </Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      ) : fetched ? (
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyText}>
+            No healthier alternatives found for this product category.
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 14,
-    backgroundColor: NEO_COLORS.white,
-    borderRadius: NEO_RADIUS.md,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    overflow: 'hidden',
-  },
-  headerBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: NEO_COLORS.green,
-    borderBottomWidth: NEO_BORDERS.thick,
-    borderBottomColor: NEO_COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  squareMarker: {
-    width: 8,
-    height: 8,
-    backgroundColor: NEO_COLORS.ink,
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.xl,
+    padding: 18,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: NEO_COLORS.border,
-  },
-  headerTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.5,
-  },
-  countBadge: {
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  countBadgeText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-  },
-  cardContent: {
-    padding: 14,
+    borderColor: PREMIUM_COLORS.border,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardSubtitle: {
-    color: NEO_COLORS.muted,
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
-  },
-  findBtn: {
-    backgroundColor: NEO_COLORS.yellow,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: NEO_RADIUS.sm,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-  },
-  findBtnText: {
-    color: NEO_COLORS.ink,
-    fontWeight: '900',
-    fontSize: 12,
-    letterSpacing: 0.4,
-  },
-  loadingBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 14,
-    padding: 10,
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderRadius: NEO_RADIUS.sm,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-  },
-  loadingText: {
-    color: NEO_COLORS.ink,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  errorBox: {
-    marginTop: 12,
-    backgroundColor: NEO_COLORS.status.avoidBg,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    padding: 10,
-    borderRadius: NEO_RADIUS.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  errorText: {
-    color: NEO_COLORS.ink,
-    fontSize: 12,
-    fontWeight: '800',
-    flex: 1,
-  },
-  retryBtn: {
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: NEO_RADIUS.xs,
-  },
-  retryText: {
-    color: NEO_COLORS.ink,
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  list: {
-    marginTop: 14,
-    gap: 10,
-  },
-  itemCard: {
-    backgroundColor: NEO_COLORS.card,
-    borderRadius: NEO_RADIUS.sm,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    padding: 12,
-  },
-  itemHeader: {
-    flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 8,
+    marginBottom: 12,
+  },
+  badgeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: PREMIUM_RADIUS.pill,
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginBottom: 6,
+  },
+  badgeSparkle: {
+    fontSize: 10,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: PREMIUM_COLORS.primaryDark,
+    letterSpacing: 0.5,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  findBtn: {
+    backgroundColor: PREMIUM_COLORS.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: PREMIUM_RADIUS.pill,
+    alignItems: 'center',
+  },
+  findBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.primaryDark,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: PREMIUM_COLORS.status.avoidBg,
+    borderRadius: PREMIUM_RADIUS.md,
+    padding: 10,
+    marginTop: 8,
+  },
+  errorText: {
+    fontSize: 13,
+    color: PREMIUM_COLORS.status.avoid,
+    fontWeight: '600',
+  },
+  scrollList: {
+    paddingVertical: 4,
+    gap: 12,
+  },
+  itemCard: {
+    width: 170,
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.lg,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
   },
   itemName: {
     fontSize: 14,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-  },
-  itemBrand: {
-    fontSize: 11,
     fontWeight: '700',
-    color: NEO_COLORS.muted,
-    marginTop: 2,
+    color: PREMIUM_COLORS.ink,
+    marginTop: 8,
+    marginBottom: 4,
   },
-  badgeRow: {
+  itemMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  nutriPill: {
-    width: 24,
-    height: 24,
-    borderRadius: NEO_RADIUS.xs,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-  },
-  nutriText: {
-    color: NEO_COLORS.white,
-    fontWeight: '900',
-    fontSize: 12,
+    marginBottom: 8,
   },
   scorePill: {
-    backgroundColor: NEO_COLORS.yellow,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.status.safeBg,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: NEO_RADIUS.xs,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
+    borderRadius: PREMIUM_RADIUS.pill,
+    gap: 4,
   },
-  scoreText: {
-    fontWeight: '900',
+  scoreDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: PREMIUM_COLORS.status.safe,
+  },
+  scoreVal: {
     fontSize: 11,
-    color: NEO_COLORS.ink,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.status.safe,
   },
-  advWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 8,
-  },
-  advBadge: {
-    backgroundColor: NEO_COLORS.greenLight,
-    borderWidth: 1,
-    borderColor: NEO_COLORS.green,
-    borderRadius: NEO_RADIUS.xs,
+  nutriscoreBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
+    borderRadius: PREMIUM_RADIUS.sm,
   },
-  advText: {
+  nutriscoreText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#1e5222',
   },
-  selectBtn: {
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: NEO_COLORS.bgAlt,
-    alignItems: 'center',
+  advantagePill: {
+    backgroundColor: PREMIUM_COLORS.bgAlt,
+    padding: 6,
+    borderRadius: PREMIUM_RADIUS.sm,
   },
-  selectBtnText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.4,
+  advantageText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: PREMIUM_COLORS.primaryDark,
+    lineHeight: 16,
   },
   emptyBox: {
-    marginTop: 14,
-    padding: 12,
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderRadius: NEO_RADIUS.sm,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
+    borderRadius: PREMIUM_RADIUS.md,
+    padding: 14,
+    alignItems: 'center',
   },
   emptyText: {
-    fontSize: 12,
-    color: NEO_COLORS.muted,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '500',
+    color: PREMIUM_COLORS.secondary,
     textAlign: 'center',
+    lineHeight: 18,
   },
 });

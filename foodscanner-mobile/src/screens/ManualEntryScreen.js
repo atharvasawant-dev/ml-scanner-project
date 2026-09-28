@@ -1,9 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { analyzeManualProduct } from '../services/api';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS, NEO_TYPOGRAPHY } from '../theme/neoTheme';
-import { NeoCard, NeoButton, NeoInput, NeoBadge, NeoSectionHeader } from '../components/neo';
+import {
+  PREMIUM_COLORS,
+  PREMIUM_SHADOWS,
+  PREMIUM_RADIUS,
+} from '../theme/premiumTheme';
+import { NeoButton, NeoInput } from '../components/neo';
 
 function _toNum(v) {
   if (v === null || v === undefined) return null;
@@ -99,201 +104,202 @@ export default function ManualEntryScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Header Banner */}
-      <View style={styles.header}>
-        <View style={styles.badgeRow}>
-          <NeoBadge text="MANUAL AUDIT MODE" variant="yellow" />
-          <Text style={styles.headerTag}>⚡ FALLBACK INPUT</Text>
-        </View>
-        <Text style={styles.title}>Manual Nutrition Entry</Text>
-        <Text style={styles.subtitle}>
-          Enter values from the back-of-pack nutrition table for instant PRAMAAN verification.
-        </Text>
-      </View>
-
-      {/* Form Card */}
-      <NeoCard variant="white" elevation="lg" style={styles.card}>
-        <NeoSectionHeader title="Product Details" count="Required" tagColor={NEO_COLORS.yellow} />
-        <NeoInput
-          label="Product / Food Name"
-          value={productName}
-          onChangeText={setProductName}
-          placeholder="e.g. Sprite 330ml / Oats Biscuit"
-          editable={!loading}
-        />
-
-        <NeoSectionHeader
-          title="Nutritional Breakdown"
-          count="per 100g"
-          tagColor={NEO_COLORS.cyan}
-          style={{ marginTop: 12 }}
-        />
-
-        {/* 2-Column Responsive Grid */}
-        <View style={styles.grid}>
-          <View style={styles.gridCol}>
-            <NeoInput
-              label="Energy (kcal)"
-              value={calories}
-              onChangeText={setCalories}
-              keyboardType="numeric"
-              placeholder="0"
-              editable={!loading}
-              rightElement={<Text style={styles.unitText}>kcal</Text>}
-            />
-          </View>
-          <View style={styles.gridCol}>
-            <NeoInput
-              label="Total Fat"
-              value={fat}
-              onChangeText={setFat}
-              keyboardType="numeric"
-              placeholder="0.0"
-              editable={!loading}
-              rightElement={<Text style={styles.unitText}>g</Text>}
-            />
-          </View>
-          <View style={styles.gridCol}>
-            <NeoInput
-              label="Sugars"
-              value={sugar}
-              onChangeText={setSugar}
-              keyboardType="numeric"
-              placeholder="0.0"
-              editable={!loading}
-              rightElement={<Text style={styles.unitText}>g</Text>}
-            />
-          </View>
-          <View style={styles.gridCol}>
-            <NeoInput
-              label="Salt / Sodium"
-              value={salt}
-              onChangeText={setSalt}
-              keyboardType="numeric"
-              placeholder="0.0"
-              editable={!loading}
-              rightElement={<Text style={styles.unitText}>g</Text>}
-            />
-          </View>
-          <View style={styles.gridCol}>
-            <NeoInput
-              label="Protein"
-              value={protein}
-              onChangeText={setProtein}
-              keyboardType="numeric"
-              placeholder="0.0"
-              editable={!loading}
-              rightElement={<Text style={styles.unitText}>g</Text>}
-            />
-          </View>
-          <View style={styles.gridCol}>
-            <NeoInput
-              label="Fiber"
-              value={fiber}
-              onChangeText={setFiber}
-              keyboardType="numeric"
-              placeholder="0.0"
-              editable={!loading}
-              rightElement={<Text style={styles.unitText}>g</Text>}
-            />
-          </View>
-        </View>
-
-        <NeoInput
-          label="Total Carbohydrates (g)"
-          value={carbs}
-          onChangeText={setCarbs}
-          keyboardType="numeric"
-          placeholder="0.0"
-          editable={!loading}
-          rightElement={<Text style={styles.unitText}>g</Text>}
-        />
-
-        {/* Action Buttons */}
-        <View style={styles.actionsWrap}>
-          <NeoButton
-            title={loading ? 'AUDITING NUTRITION...' : 'ANALYSE WITH PRAMAAN'}
-            variant="coral"
-            size="lg"
-            onPress={onSubmit}
-            disabled={loading}
-          />
-
-          <NeoButton
-            title="CANCEL & RETURN"
-            variant="white"
-            size="md"
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Navigation Top */}
+        <View style={styles.navBar}>
+          <TouchableOpacity
+            style={[styles.backBtn, PREMIUM_SHADOWS.sm]}
             onPress={() => navigation.goBack()}
-            disabled={loading}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="arrow-back" size={16} color={PREMIUM_COLORS.ink} style={{ marginRight: 4 }} />
+            <Text style={styles.backBtnText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.categoryBadge}>
+            <View style={styles.badgeDot} />
+            <Text style={styles.badgeText}>CUSTOM DATA</Text>
+          </View>
+          <Text style={styles.screenTitle}>Manual Nutrition Entry</Text>
+          <Text style={styles.screenSub}>
+            Type declared nutrition metrics per 100g to run ML NutriScore and FSSAI analysis.
+          </Text>
+        </View>
+
+        {/* Form Card */}
+        <View style={[styles.card, PREMIUM_SHADOWS.sm]}>
+          <NeoInput
+            label="Product Name *"
+            placeholder="e.g. Handmade Granola"
+            value={productName}
+            onChangeText={setProductName}
+          />
+
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <NeoInput
+                label="Calories (kcal)"
+                placeholder="450"
+                value={calories}
+                onChangeText={setCalories}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <NeoInput
+                label="Protein (g)"
+                placeholder="12.5"
+                value={protein}
+                onChangeText={setProtein}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <NeoInput
+                label="Carbohydrates (g)"
+                placeholder="60.0"
+                value={carbs}
+                onChangeText={setCarbs}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <NeoInput
+                label="Total Sugar (g)"
+                placeholder="15.0"
+                value={sugar}
+                onChangeText={setSugar}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <NeoInput
+                label="Total Fat (g)"
+                placeholder="18.0"
+                value={fat}
+                onChangeText={setFat}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <NeoInput
+                label="Fiber (g)"
+                placeholder="6.0"
+                value={fiber}
+                onChangeText={setFiber}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          <NeoInput
+            label="Salt / Sodium Equivalent (g)"
+            placeholder="0.4"
+            value={salt}
+            onChangeText={setSalt}
+            keyboardType="numeric"
+          />
+
+          <NeoButton
+            title="Analyze Nutrition Facts →"
+            onPress={onSubmit}
+            loading={loading}
+            variant="black"
+            size="lg"
+            style={{ marginTop: 8 }}
           />
         </View>
-      </NeoCard>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: NEO_COLORS.bg,
+    backgroundColor: PREMIUM_COLORS.bg,
   },
   scrollContent: {
-    padding: 16,
+    padding: 18,
+    paddingTop: 48,
     paddingBottom: 40,
+  },
+  navBar: {
+    marginBottom: 12,
+  },
+  backBtn: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.card,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: PREMIUM_RADIUS.pill,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
   },
   header: {
     marginBottom: 16,
   },
-  badgeRow: {
+  categoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
+    gap: 6,
+    marginBottom: 4,
   },
-  headerTag: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.5,
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: PREMIUM_COLORS.primaryDark,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: -0.5,
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.primaryDark,
+    letterSpacing: 0.6,
   },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: NEO_COLORS.muted,
+  screenTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    letterSpacing: -0.4,
+  },
+  screenSub: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
     marginTop: 4,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   card: {
-    padding: 16,
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.xl,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
   },
-  grid: {
+  row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  gridCol: {
-    width: '48%',
-  },
-  unitText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: NEO_COLORS.muted,
-    paddingRight: 4,
-  },
-  actionsWrap: {
-    marginTop: 12,
-    gap: 10,
+    gap: 12,
   },
 });

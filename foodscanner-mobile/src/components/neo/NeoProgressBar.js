@@ -1,16 +1,30 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS } from '../../theme/neoTheme';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
+import { PREMIUM_COLORS, PREMIUM_RADIUS } from '../../theme/premiumTheme';
 
 export default function NeoProgressBar({
   progress = 0, // 0 to 1 or 0 to 100
-  color = NEO_COLORS.lime,
-  height = 12,
+  color = PREMIUM_COLORS.primary,
+  height = 8,
   label,
   valueText,
   style,
+  animated = true,
 }) {
   const norm = progress > 1 ? Math.min(100, Math.max(0, progress)) : Math.min(100, Math.max(0, progress * 100));
+  const animWidth = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (animated) {
+      Animated.timing(animWidth, {
+        toValue: norm,
+        duration: 500,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      animWidth.setValue(norm);
+    }
+  }, [norm, animated, animWidth]);
 
   return (
     <View style={[styles.container, style]}>
@@ -21,13 +35,16 @@ export default function NeoProgressBar({
         </View>
       ) : null}
       <View style={[styles.track, { height, borderRadius: height / 2 }]}>
-        <View
+        <Animated.View
           style={[
             styles.fill,
             {
-              width: `${norm}%`,
+              width: animWidth.interpolate({
+                inputRange: [0, 100],
+                outputRange: ['0%', '100%'],
+              }),
               backgroundColor: color,
-              borderRadius: Math.max(0, height / 2 - 2),
+              borderRadius: height / 2,
             },
           ]}
         />
@@ -44,28 +61,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   labelText: {
     fontSize: 13,
-    fontWeight: '800',
-    color: NEO_COLORS.ink,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.ink,
   },
   valueText: {
     fontSize: 12,
-    fontWeight: '900',
-    color: NEO_COLORS.muted,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.secondary,
   },
   track: {
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
     overflow: 'hidden',
     justifyContent: 'center',
   },
   fill: {
     height: '100%',
-    borderRightWidth: 1.5,
-    borderRightColor: NEO_COLORS.border,
   },
 });

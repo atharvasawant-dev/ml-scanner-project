@@ -1,8 +1,13 @@
 import React from 'react';
-import { Text, View, Platform } from 'react-native';
+import { View, Platform, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { NEO_COLORS, NEO_BORDERS } from '../theme/neoTheme';
+import { Ionicons } from '@expo/vector-icons';
+import {
+  PREMIUM_COLORS,
+  PREMIUM_SHADOWS,
+  PREMIUM_RADIUS,
+} from '../theme/premiumTheme';
 
 import { useAuth } from '../context/AuthContext';
 
@@ -18,67 +23,72 @@ import OCRScanScreen from '../screens/OCRScanScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-
-
-
 function TabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: NEO_COLORS.ink,
-        tabBarInactiveTintColor: NEO_COLORS.muted,
+        tabBarShowLabel: true,
+        tabBarActiveTintColor: PREMIUM_COLORS.primaryDark,
+        tabBarInactiveTintColor: PREMIUM_COLORS.secondary,
         tabBarLabelStyle: {
-          fontWeight: '900',
-          fontSize: 11,
-          letterSpacing: 0.5,
-          textTransform: 'uppercase',
-          marginTop: 2,
+          fontWeight: '700',
+          fontSize: 10,
+          marginTop: -2,
+          marginBottom: 4,
+          letterSpacing: 0.2,
         },
         tabBarStyle: {
-          backgroundColor: NEO_COLORS.card,
-          borderTopColor: NEO_COLORS.ink,
-          borderTopWidth: NEO_BORDERS.thick,
-          height: Platform.OS === 'ios' ? 84 : 68,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-          paddingTop: 8,
-          elevation: 8,
+          position: 'absolute',
+          bottom: Platform.OS === 'ios' ? 24 : 14,
+          left: 16,
+          right: 16,
+          backgroundColor: PREMIUM_COLORS.card,
+          borderRadius: 28,
+          height: 64,
+          paddingBottom: 4,
+          paddingTop: 4,
+          borderTopWidth: 0,
+          borderWidth: 1,
+          borderColor: PREMIUM_COLORS.border,
+          ...PREMIUM_SHADOWS.floating,
+        },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingVertical: 2,
         },
         tabBarIcon: ({ focused }) => {
-          const icons = { Home: '🏠', Scan: '📷', Report: '📊', Profile: '👤' };
+          let iconName;
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Scan') {
+            iconName = focused ? 'scan' : 'scan-outline';
+          } else if (route.name === 'Report') {
+            iconName = focused ? 'stats-chart' : 'stats-chart-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
+
+          const iconColor = focused ? PREMIUM_COLORS.primaryDark : PREMIUM_COLORS.secondary;
+
           return (
             <View
-              style={{
-                paddingHorizontal: 8,
-                paddingVertical: 2,
-                borderRadius: 6,
-                backgroundColor: focused ? NEO_COLORS.lime : 'transparent',
-                borderWidth: focused ? 1.5 : 0,
-                borderColor: NEO_COLORS.ink,
-              }}
+              style={[
+                styles.iconWrap,
+                focused ? styles.iconWrapFocused : null,
+              ]}
             >
-              <Text style={{ fontSize: 19 }}>{icons[route.name] || '•'}</Text>
+              <Ionicons name={iconName} size={20} color={iconColor} />
             </View>
           );
         },
       })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-      />
-      <Tab.Screen
-        name="Scan"
-        component={ScanScreen}
-      />
-      <Tab.Screen
-        name="Report"
-        component={ReportScreen}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Scan" component={ScanScreen} />
+      <Tab.Screen name="Report" component={ReportScreen} options={{ tabBarLabel: 'Reports' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
@@ -107,3 +117,17 @@ export default function AppNavigator() {
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: PREMIUM_RADIUS.pill,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconWrapFocused: {
+    backgroundColor: PREMIUM_COLORS.primaryLight,
+  },
+});

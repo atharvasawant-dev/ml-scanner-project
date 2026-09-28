@@ -1,26 +1,17 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { compareProducts } from '../services/api';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../theme/neoTheme';
+import { PREMIUM_COLORS, PREMIUM_SHADOWS, PREMIUM_RADIUS } from '../theme/premiumTheme';
 
 const COMPARE_SUGGESTIONS = ['Parle-G', 'Maggi', 'Kurkure', "Lay's", 'Amul Butter'];
 
 function _scorePill(score) {
   const s = Number(score);
-  if (!Number.isFinite(s)) return { text: 'N/A', bg: NEO_COLORS.bgAlt, fg: NEO_COLORS.muted };
-  if (s >= 70) return { text: `${s}`, bg: NEO_COLORS.green, fg: NEO_COLORS.ink };
-  if (s >= 45) return { text: `${s}`, bg: NEO_COLORS.yellow, fg: NEO_COLORS.ink };
-  return { text: `${s}`, bg: NEO_COLORS.coral, fg: NEO_COLORS.ink };
-}
-
-function _nutriscoreColor(grade) {
-  const g = String(grade || '').toLowerCase();
-  if (g === 'a') return '#2E7D32';
-  if (g === 'b') return '#689F38';
-  if (g === 'c') return '#FBC02D';
-  if (g === 'd') return '#EF6C00';
-  if (g === 'e') return '#C62828';
-  return NEO_COLORS.muted;
+  if (!Number.isFinite(s)) return { text: 'N/A', bg: PREMIUM_COLORS.bgAlt, fg: PREMIUM_COLORS.secondary };
+  if (s >= 70) return { text: `${s}`, bg: PREMIUM_COLORS.status.safeBg, fg: PREMIUM_COLORS.status.safe };
+  if (s >= 45) return { text: `${s}`, bg: PREMIUM_COLORS.status.moderateBg, fg: PREMIUM_COLORS.status.moderate };
+  return { text: `${s}`, bg: PREMIUM_COLORS.status.avoidBg, fg: PREMIUM_COLORS.status.avoid };
 }
 
 export default function ComparisonCard({ currentProduct = null }) {
@@ -48,68 +39,88 @@ export default function ComparisonCard({ currentProduct = null }) {
       setExpanded(true);
     } catch (e) {
       const status = e?.response?.status;
-      let msg = 'Could not compare products';
       if (status === 404) {
-        msg = `Product "${query}" was not found. Try another barcode or name.`;
-      } else if (e?.response?.data?.detail) {
-        msg = String(e.response.data.detail);
+        setError(`Product "${query}" not found in database. Try another search term.`);
+      } else {
+        const msg = e?.response?.data?.detail || e?.message || 'Comparison failed';
+        setError(String(msg));
       }
-      setError(msg);
-      setComparison(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const a = comparison?.product_a;
-  const b = comparison?.product_b;
-  const reasons = Array.isArray(comparison?.reasons) ? comparison.reasons : [];
-
-  const aScore = _scorePill(a?.health_score);
-  const bScore = _scorePill(b?.health_score);
-
-  const aNutr = a?.nutrition || {};
-  const bNutr = b?.nutrition || {};
-
-  const metrics = [
-    { label: 'Calories', a: aNutr.calories, b: bNutr.calories, unit: 'kcal' },
-    { label: 'Sugar', a: aNutr.sugar, b: bNutr.sugar, unit: 'g' },
-    { label: 'Fat', a: aNutr.fat, b: bNutr.fat, unit: 'g' },
-    { label: 'Sat. Fat', a: aNutr.saturated_fat, b: bNutr.saturated_fat, unit: 'g' },
-    { label: 'Salt/Sodium', a: aNutr.salt, b: bNutr.salt, unit: 'g' },
-    { label: 'Protein', a: aNutr.protein, b: bNutr.protein, unit: 'g' },
-    { label: 'Fiber', a: aNutr.fiber, b: bNutr.fiber, unit: 'g' },
+  const prodA = comparison?.product_a || {};
+  const prodB = comparison?.product_b || {};
+  const compMetrics = [
+    { label: 'Health Score', key: 'health_score', unit: '/100', higherIsBetter: true },
+    { label: 'Calories', key: 'calories', unit: ' kcal', higherIsBetter: false },
+    { label: 'Sugar', key: 'sugar', unit: 'g', higherIsBetter: false },
+    { label: 'Protein', key: 'protein', unit: 'g', higherIsBetter: true },
+    { label: 'Fat', key: 'fat', unit: 'g', higherIsBetter: false },
+    { label: 'Salt / Sodium', key: 'salt', unit: 'g', higherIsBetter: false },
   ];
 
   return (
-    <View style={[styles.card, NEO_SHADOWS.md]}>
-      {/* Neo-Brutalist Orange Banner */}
-      <View style={styles.headerBanner}>
-        <View style={styles.headerLeft}>
-          <View style={styles.triangleMarker} />
-          <Text style={styles.headerTitle}>PRODUCT COMPARISON</Text>
+    <View style={[styles.card, PREMIUM_SHADOWS.sm]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <View style={styles.badgeWrap}>
+            <Ionicons name="swap-horizontal-outline" size={13} color={PREMIUM_COLORS.primaryDark} />
+            <Text style={styles.badgeText}>BENCHMARK</Text>
+          </View>
+          <Text style={styles.title}>Nutritional Comparison</Text>
+          <Text style={styles.subtitle}>Head-to-head analysis with similar products</Text>
         </View>
+
+        {comparison ? (
+          <TouchableOpacity
+            style={styles.toggleBtn}
+            onPress={() => setExpanded(!expanded)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.toggleBtnText}>{expanded ? 'Hide ▲' : 'Show ▼'}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* Input Search Box */}
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.input}
+          placeholder="Compare against e.g. Maggi, Parle-G..."
+          placeholderTextColor={PREMIUM_COLORS.muted}
+          value={targetQuery}
+          onChangeText={(t) => {
+            setTargetQuery(t);
+            if (error) setError(null);
+          }}
+          returnKeyType="search"
+          onSubmitEditing={() => handleCompare(targetQuery)}
+        />
         <TouchableOpacity
-          style={styles.toggleTag}
-          activeOpacity={0.85}
-          onPress={() => setExpanded((v) => !v)}
+          style={[styles.compareBtn, (!targetQuery.trim() || loading) && styles.compareBtnDisabled]}
+          onPress={() => handleCompare(targetQuery)}
+          disabled={!targetQuery.trim() || loading}
+          activeOpacity={0.88}
         >
-          <Text style={styles.toggleTagText}>{expanded ? 'COLLAPSE ▴' : 'OPEN ▾'}</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={PREMIUM_COLORS.white} />
+          ) : (
+            <Text style={styles.compareBtnText}>Compare</Text>
+          )}
         </TouchableOpacity>
       </View>
 
-      <View style={styles.cardContent}>
-        <Text style={styles.cardSubtitle}>
-          Compare this product head-to-head with any other item or common benchmark
-        </Text>
-
-        {/* Suggestion Chips */}
-        <View style={styles.suggestionsRow}>
-          <Text style={styles.suggestLabel}>BENCHMARKS:</Text>
-          <View style={styles.chipsWrap}>
-            {COMPARE_SUGGESTIONS.map((item, idx) => (
+      {/* Benchmark Suggestions */}
+      {!comparison && (
+        <View style={styles.suggestionsWrap}>
+          <Text style={styles.suggestionsLabel}>Quick comparisons:</Text>
+          <View style={styles.chipsRow}>
+            {COMPARE_SUGGESTIONS.map((item) => (
               <TouchableOpacity
-                key={idx}
+                key={item}
                 style={styles.chip}
                 activeOpacity={0.8}
                 onPress={() => {
@@ -122,359 +133,301 @@ export default function ComparisonCard({ currentProduct = null }) {
             ))}
           </View>
         </View>
+      )}
 
-        {/* Search input + Compare Button */}
-        <View style={styles.inputRow}>
-          <View style={[styles.searchBox, NEO_SHADOWS.sm]}>
-            <TextInput
-              style={styles.input}
-              placeholder="Barcode or product name..."
-              placeholderTextColor={NEO_COLORS.muted}
-              value={targetQuery}
-              onChangeText={setTargetQuery}
-              onSubmitEditing={() => handleCompare()}
-              returnKeyType="search"
-            />
-          </View>
-          <TouchableOpacity
-            style={[styles.compareBtn, NEO_SHADOWS.sm, loading && styles.compareBtnDisabled]}
-            activeOpacity={0.85}
-            onPress={() => handleCompare()}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={NEO_COLORS.ink} size="small" />
-            ) : (
-              <Text style={styles.compareBtnText}>VS</Text>
-            )}
-          </TouchableOpacity>
+      {error ? (
+        <View style={styles.errorBox}>
+          <Ionicons name="alert-circle-outline" size={14} color={PREMIUM_COLORS.status.avoid} />
+          <Text style={styles.errorText}>{error}</Text>
         </View>
+      ) : null}
 
-        {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>⚠️ {error}</Text>
-          </View>
-        ) : null}
-
-        {/* Comparison Output */}
-        {expanded && comparison ? (
-          <View style={styles.compareResultWrap}>
-            {/* Dual Column Headers */}
-            <View style={styles.dualHeaderRow}>
-              <View style={[styles.productPillar, { borderRightWidth: 1.5, borderRightColor: NEO_COLORS.border }]}>
-                <View style={[styles.prodBadge, { backgroundColor: NEO_COLORS.cyan }]}>
-                  <Text style={styles.prodBadgeText}>CURRENT</Text>
+      {/* Comparison Results */}
+      {comparison && expanded && (
+        <View style={styles.resultsContainer}>
+          {/* Product A vs Product B Header */}
+          <View style={styles.vsHeaderRow}>
+            <View style={styles.productSide}>
+              <Text style={styles.sideLabel}>CURRENT</Text>
+              <Text style={styles.productName} numberOfLines={2}>
+                {prodA?.product_name || currentProduct?.name || 'Product A'}
+              </Text>
+              {prodA?.health_score != null ? (
+                <View style={[styles.scoreBadge, { backgroundColor: _scorePill(prodA.health_score).bg }]}>
+                  <Text style={[styles.scoreBadgeText, { color: _scorePill(prodA.health_score).fg }]}>
+                    Score {prodA.health_score}
+                  </Text>
                 </View>
-                <Text style={styles.pillarName} numberOfLines={2}>{a?.product_name || 'Current Item'}</Text>
-                <View style={[styles.scoreBadge, { backgroundColor: aScore.bg }]}>
-                  <Text style={[styles.scoreBadgeText, { color: aScore.fg }]}>SCORE: {aScore.text}</Text>
-                </View>
-              </View>
-
-              <View style={styles.productPillar}>
-                <View style={[styles.prodBadge, { backgroundColor: NEO_COLORS.pink }]}>
-                  <Text style={styles.prodBadgeText}>COMPARISON</Text>
-                </View>
-                <Text style={styles.pillarName} numberOfLines={2}>{b?.product_name || 'Target Item'}</Text>
-                <View style={[styles.scoreBadge, { backgroundColor: bScore.bg }]}>
-                  <Text style={[styles.scoreBadgeText, { color: bScore.fg }]}>SCORE: {bScore.text}</Text>
-                </View>
-              </View>
+              ) : null}
             </View>
 
-            {/* Metrics Table */}
-            <View style={styles.table}>
-              <View style={styles.tableHeaderRow}>
-                <Text style={[styles.colLabel, { flex: 1.2 }]}>NUTRIENT (PER 100G)</Text>
-                <Text style={[styles.colValueHeader, { flex: 1 }]}>CURRENT</Text>
-                <Text style={[styles.colValueHeader, { flex: 1 }]}>TARGET</Text>
-              </View>
-
-              {metrics.map((m, idx) => {
-                const valA = m.a !== undefined && m.a !== null ? `${m.a} ${m.unit}` : '—';
-                const valB = m.b !== undefined && m.b !== null ? `${m.b} ${m.unit}` : '—';
-                return (
-                  <View key={idx} style={[styles.tableRow, idx % 2 === 1 && { backgroundColor: NEO_COLORS.bgAlt }]}>
-                    <Text style={[styles.rowLabel, { flex: 1.2 }]}>{m.label}</Text>
-                    <Text style={[styles.rowVal, { flex: 1 }]}>{valA}</Text>
-                    <Text style={[styles.rowVal, { flex: 1 }]}>{valB}</Text>
-                  </View>
-                );
-              })}
+            <View style={styles.vsBadge}>
+              <Text style={styles.vsText}>VS</Text>
             </View>
 
-            {/* Algorithmic Reasons */}
-            {reasons.length > 0 ? (
-              <View style={styles.reasonsBox}>
-                <Text style={styles.reasonsTitle}>KEY NUTRITIONAL DIFFERENCES:</Text>
-                {reasons.map((r, idx) => (
-                  <Text key={idx} style={styles.reasonLine}>→ {String(r)}</Text>
-                ))}
-              </View>
-            ) : null}
+            <View style={[styles.productSide, { alignItems: 'flex-end' }]}>
+              <Text style={styles.sideLabel}>TARGET</Text>
+              <Text style={[styles.productName, { textAlign: 'right' }]} numberOfLines={2}>
+                {prodB?.product_name || targetQuery || 'Product B'}
+              </Text>
+              {prodB?.health_score != null ? (
+                <View style={[styles.scoreBadge, { backgroundColor: _scorePill(prodB.health_score).bg }]}>
+                  <Text style={[styles.scoreBadgeText, { color: _scorePill(prodB.health_score).fg }]}>
+                    Score {prodB.health_score}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-        ) : null}
-      </View>
+
+          {/* Metric Comparison Rows */}
+          <View style={styles.metricsBox}>
+            {compMetrics.map((m) => {
+              const valA = Number(prodA[m.key] ?? prodA?.nutrition?.[m.key]);
+              const valB = Number(prodB[m.key] ?? prodB?.nutrition?.[m.key]);
+              const validA = Number.isFinite(valA);
+              const validB = Number.isFinite(valB);
+
+              let highlightA = false;
+              let highlightB = false;
+              if (validA && validB && valA !== valB) {
+                if (m.higherIsBetter) {
+                  highlightA = valA > valB;
+                  highlightB = valB > valA;
+                } else {
+                  highlightA = valA < valB;
+                  highlightB = valB < valA;
+                }
+              }
+
+              return (
+                <View key={m.key} style={styles.metricRow}>
+                  <Text style={[styles.metricVal, highlightA && styles.metricValWinner]}>
+                    {validA ? `${valA}${m.unit}` : '—'}
+                  </Text>
+                  <Text style={styles.metricLabel}>{m.label}</Text>
+                  <Text style={[styles.metricVal, { textAlign: 'right' }, highlightB && styles.metricValWinner]}>
+                    {validB ? `${valB}${m.unit}` : '—'}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 14,
-    backgroundColor: NEO_COLORS.white,
-    borderRadius: NEO_RADIUS.md,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    overflow: 'hidden',
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.xl,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
   },
-  headerBanner: {
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    backgroundColor: NEO_COLORS.orange,
-    borderBottomWidth: NEO_BORDERS.thick,
-    borderBottomColor: NEO_COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    marginBottom: 12,
   },
-  headerLeft: {
+  badgeWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    backgroundColor: PREMIUM_COLORS.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: PREMIUM_RADIUS.pill,
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginBottom: 6,
   },
-  triangleMarker: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 5,
-    borderRightWidth: 5,
-    borderBottomWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: NEO_COLORS.ink,
+  badgeSparkle: {
+    fontSize: 10,
   },
-  headerTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: PREMIUM_COLORS.primaryDark,
     letterSpacing: 0.5,
   },
-  toggleTag: {
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    letterSpacing: -0.3,
   },
-  toggleTagText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    marginTop: 2,
+    lineHeight: 18,
   },
-  cardContent: {
-    padding: 14,
+  toggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: PREMIUM_RADIUS.pill,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
   },
-  cardSubtitle: {
-    color: NEO_COLORS.muted,
+  toggleBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    lineHeight: 17,
-    marginBottom: 10,
+    color: PREMIUM_COLORS.secondary,
   },
-  suggestionsRow: {
-    marginBottom: 10,
+  searchRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
   },
-  suggestLabel: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.muted,
+  input: {
+    flex: 1,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
+    borderRadius: PREMIUM_RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontWeight: '500',
+    color: PREMIUM_COLORS.ink,
+  },
+  compareBtn: {
+    backgroundColor: PREMIUM_COLORS.ink,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: PREMIUM_RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compareBtnDisabled: {
+    opacity: 0.5,
+  },
+  compareBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.white,
+  },
+  suggestionsWrap: {
+    marginTop: 10,
+  },
+  suggestionsLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.secondary,
     marginBottom: 6,
-    letterSpacing: 0.5,
   },
-  chipsWrap: {
+  chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
   },
   chip: {
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: PREMIUM_RADIUS.pill,
   },
   chipText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: NEO_COLORS.ink,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  searchBox: {
-    flex: 1,
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.sm,
-    paddingHorizontal: 10,
-  },
-  input: {
-    paddingVertical: 8,
-    fontSize: 13,
-    fontWeight: '700',
-    color: NEO_COLORS.ink,
-  },
-  compareBtn: {
-    backgroundColor: NEO_COLORS.yellow,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.sm,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  compareBtnDisabled: {
-    opacity: 0.6,
-  },
-  compareBtnText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.ink,
   },
   errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: PREMIUM_COLORS.status.avoidBg,
+    borderRadius: PREMIUM_RADIUS.md,
+    padding: 10,
     marginTop: 10,
-    backgroundColor: NEO_COLORS.status.avoidBg,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    padding: 8,
-    borderRadius: NEO_RADIUS.sm,
   },
   errorText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: NEO_COLORS.ink,
-  },
-  compareResultWrap: {
-    marginTop: 14,
-    borderTopWidth: NEO_BORDERS.regular,
-    borderTopColor: NEO_COLORS.border,
-    paddingTop: 12,
-  },
-  dualHeaderRow: {
-    flexDirection: 'row',
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.sm,
-    overflow: 'hidden',
-  },
-  productPillar: {
-    flex: 1,
-    padding: 10,
-    alignItems: 'center',
-  },
-  prodBadge: {
-    borderWidth: 1,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    marginBottom: 4,
-  },
-  prodBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-  },
-  pillarName: {
     fontSize: 13,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    textAlign: 'center',
-    minHeight: 34,
+    color: PREMIUM_COLORS.status.avoid,
+    fontWeight: '600',
   },
-  scoreBadge: {
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginTop: 4,
+  resultsContainer: {
+    marginTop: 14,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
+    borderRadius: PREMIUM_RADIUS.lg,
+    padding: 14,
   },
-  scoreBadgeText: {
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  table: {
-    marginTop: 10,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.sm,
-    overflow: 'hidden',
-  },
-  tableHeaderRow: {
+  vsHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: NEO_COLORS.ink,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  colLabel: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.white,
-    letterSpacing: 0.3,
-  },
-  colValueHeader: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.white,
-    textAlign: 'center',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: NEO_COLORS.mutedLight,
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: PREMIUM_COLORS.divider,
+    marginBottom: 10,
   },
-  rowLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: NEO_COLORS.ink,
+  productSide: {
+    flex: 1,
   },
-  rowVal: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    textAlign: 'center',
-  },
-  reasonsBox: {
-    marginTop: 10,
-    backgroundColor: NEO_COLORS.purpleLight,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.sm,
-    padding: 10,
-  },
-  reasonsTitle: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  reasonLine: {
+  sideLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: NEO_COLORS.ink,
-    lineHeight: 16,
+    color: PREMIUM_COLORS.muted,
+    letterSpacing: 0.6,
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  scoreBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: PREMIUM_RADIUS.pill,
+  },
+  scoreBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  vsBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: PREMIUM_COLORS.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 8,
+    ...PREMIUM_SHADOWS.sm,
+  },
+  vsText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: PREMIUM_COLORS.secondary,
+  },
+  metricsBox: {
+    gap: 8,
+  },
+  metricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  metricVal: {
+    width: 60,
+    fontSize: 13,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.secondary,
+  },
+  metricValWinner: {
+    color: PREMIUM_COLORS.primaryDark,
+    fontWeight: '800',
+  },
+  metricLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
   },
 });

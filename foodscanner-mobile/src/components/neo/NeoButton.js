@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../../theme/neoTheme';
+import React, { useRef } from 'react';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View, Animated } from 'react-native';
+import { PREMIUM_COLORS, PREMIUM_SHADOWS, PREMIUM_RADIUS } from '../../theme/premiumTheme';
 
 export default function NeoButton({
   children,
   title,
   onPress,
-  variant = 'primary', // primary (lime), blue/cyan, violet/purple, green/safe, amber/warning, coral/danger, black, white/outline
+  variant = 'primary', // primary (lime), dark/black, outline/white, ai, safe, warning, danger
   size = 'md',         // sm, md, lg
   disabled = false,
   loading = false,
@@ -15,43 +15,99 @@ export default function NeoButton({
   textStyle,
   ...rest
 }) {
-  const [pressed, setPressed] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
   const buttonContent = children !== undefined ? children : title;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 4,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 6,
+    }).start();
+  };
 
   const getVariantStyles = () => {
     switch (variant) {
-      case 'lime':
-      case 'primary':
-        return { bg: NEO_COLORS.lime, text: NEO_COLORS.ink };
-      case 'blue':
-      case 'electricBlue':
-      case 'cyan':
-        return { bg: NEO_COLORS.electricBlue, text: NEO_COLORS.ink };
+      case 'black':
+      case 'dark':
+        return {
+          bg: PREMIUM_COLORS.ink,
+          text: PREMIUM_COLORS.white,
+          border: 'transparent',
+          shadow: PREMIUM_SHADOWS.md,
+        };
+      case 'white':
+      case 'outline':
+        return {
+          bg: PREMIUM_COLORS.card,
+          text: PREMIUM_COLORS.ink,
+          border: PREMIUM_COLORS.border,
+          shadow: PREMIUM_SHADOWS.sm,
+        };
       case 'violet':
       case 'purple':
       case 'ai':
-        return { bg: NEO_COLORS.violet, text: NEO_COLORS.white };
+        return {
+          bg: PREMIUM_COLORS.ai,
+          text: PREMIUM_COLORS.white,
+          border: 'transparent',
+          shadow: PREMIUM_SHADOWS.sm,
+        };
+      case 'aiLight':
+        return {
+          bg: PREMIUM_COLORS.aiBg,
+          text: PREMIUM_COLORS.aiDark,
+          border: PREMIUM_COLORS.status.aiBorder,
+          shadow: PREMIUM_SHADOWS.none,
+        };
       case 'green':
       case 'safe':
       case 'success':
-        return { bg: NEO_COLORS.green, text: NEO_COLORS.ink };
+        return {
+          bg: PREMIUM_COLORS.status.safeBg,
+          text: PREMIUM_COLORS.status.safe,
+          border: PREMIUM_COLORS.status.safeBorder,
+          shadow: PREMIUM_SHADOWS.none,
+        };
       case 'amber':
       case 'warning':
       case 'moderate':
       case 'yellow':
-        return { bg: NEO_COLORS.amber, text: NEO_COLORS.ink };
+        return {
+          bg: PREMIUM_COLORS.status.moderateBg,
+          text: PREMIUM_COLORS.status.moderate,
+          border: PREMIUM_COLORS.status.moderateBorder,
+          shadow: PREMIUM_SHADOWS.none,
+        };
       case 'coral':
       case 'danger':
       case 'red':
       case 'avoid':
-        return { bg: NEO_COLORS.coral, text: NEO_COLORS.white };
-      case 'black':
-        return { bg: NEO_COLORS.ink, text: NEO_COLORS.white };
-      case 'white':
-      case 'outline':
-        return { bg: NEO_COLORS.white, text: NEO_COLORS.ink };
+        return {
+          bg: PREMIUM_COLORS.status.avoidBg,
+          text: PREMIUM_COLORS.status.avoid,
+          border: PREMIUM_COLORS.status.avoidBorder,
+          shadow: PREMIUM_SHADOWS.none,
+        };
+      case 'lime':
+      case 'primary':
       default:
-        return { bg: NEO_COLORS.lime, text: NEO_COLORS.ink };
+        return {
+          bg: PREMIUM_COLORS.primary,
+          text: PREMIUM_COLORS.ink,
+          border: 'transparent',
+          shadow: PREMIUM_SHADOWS.sm,
+        };
     }
   };
 
@@ -59,25 +115,25 @@ export default function NeoButton({
     switch (size) {
       case 'sm':
         return {
-          paddingVertical: 7,
-          paddingHorizontal: 12,
-          fontSize: 12,
-          borderRadius: NEO_RADIUS.sm,
+          paddingVertical: 8,
+          paddingHorizontal: 14,
+          fontSize: 13,
+          borderRadius: PREMIUM_RADIUS.pill,
         };
       case 'lg':
         return {
-          paddingVertical: 14,
-          paddingHorizontal: 20,
+          paddingVertical: 16,
+          paddingHorizontal: 24,
           fontSize: 16,
-          borderRadius: NEO_RADIUS.md,
+          borderRadius: PREMIUM_RADIUS.pill,
         };
       case 'md':
       default:
         return {
-          paddingVertical: 11,
-          paddingHorizontal: 16,
+          paddingVertical: 12,
+          paddingHorizontal: 20,
           fontSize: 14,
-          borderRadius: NEO_RADIUS.md,
+          borderRadius: PREMIUM_RADIUS.pill,
         };
     }
   };
@@ -86,67 +142,63 @@ export default function NeoButton({
   const sConfig = getSizeStyles();
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={onPress}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
-      disabled={disabled || loading}
-      style={[
-        styles.button,
-        {
-          backgroundColor: disabled ? NEO_COLORS.mutedLight : vConfig.bg,
-          paddingVertical: sConfig.paddingVertical,
-          paddingHorizontal: sConfig.paddingHorizontal,
-          borderRadius: sConfig.borderRadius,
-        },
-        pressed ? styles.buttonPressed : (size === 'sm' ? NEO_SHADOWS.sm : NEO_SHADOWS.md),
-        disabled && styles.buttonDisabled,
-        style,
-      ]}
-      {...rest}
-    >
-      {loading ? (
-        <ActivityIndicator size="small" color={vConfig.text} />
-      ) : (
-        <View style={styles.contentRow}>
-          {icon ? <View style={styles.iconBox}>{icon}</View> : null}
-          {typeof buttonContent === 'string' ? (
-            <Text
-              style={[
-                styles.text,
-                {
-                  color: disabled ? NEO_COLORS.muted : vConfig.text,
-                  fontSize: sConfig.fontSize,
-                },
-                textStyle,
-              ]}
-            >
-              {buttonContent}
-            </Text>
-          ) : (
-            buttonContent
-          )}
-        </View>
-      )}
-    </TouchableOpacity>
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, disabled && styles.disabledWrap]}>
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled || loading}
+        style={[
+          styles.button,
+          {
+            backgroundColor: disabled ? PREMIUM_COLORS.bgAlt : vConfig.bg,
+            borderColor: disabled ? 'transparent' : vConfig.border,
+            borderWidth: vConfig.border !== 'transparent' ? 1 : 0,
+            paddingVertical: sConfig.paddingVertical,
+            paddingHorizontal: sConfig.paddingHorizontal,
+            borderRadius: sConfig.borderRadius,
+          },
+          vConfig.shadow,
+          style,
+        ]}
+        {...rest}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color={vConfig.text} />
+        ) : (
+          <View style={styles.contentRow}>
+            {icon ? <View style={styles.iconBox}>{icon}</View> : null}
+            {typeof buttonContent === 'string' ? (
+              <Text
+                style={[
+                  styles.text,
+                  {
+                    color: disabled ? PREMIUM_COLORS.mutedLight : vConfig.text,
+                    fontSize: sConfig.fontSize,
+                  },
+                  textStyle,
+                ]}
+              >
+                {buttonContent}
+              </Text>
+            ) : (
+              buttonContent
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonPressed: {
-    transform: [{ translateX: 2 }, { translateY: 2 }],
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-    shadowOpacity: 0,
-    elevation: 0,
+  disabledWrap: {
+    opacity: 0.65,
   },
   contentRow: {
     flexDirection: 'row',
@@ -155,11 +207,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconBox: {
-    marginRight: 2,
+    marginRight: 4,
   },
   text: {
-    fontWeight: '900',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });

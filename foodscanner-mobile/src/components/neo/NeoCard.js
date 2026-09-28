@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../../theme/neoTheme';
+import { PREMIUM_COLORS, PREMIUM_SHADOWS, PREMIUM_RADIUS } from '../../theme/premiumTheme';
 
 export default function NeoCard({
   children,
@@ -15,14 +15,14 @@ export default function NeoCard({
   ...rest
 }) {
   const CardContainer = onPress ? TouchableOpacity : View;
-  const shadowStyle = shadow === 'none' ? NEO_SHADOWS.none : NEO_SHADOWS[shadow] || NEO_SHADOWS.md;
+  const shadowStyle = shadow === 'none' ? PREMIUM_SHADOWS.none : PREMIUM_SHADOWS[shadow] || PREMIUM_SHADOWS.md;
 
   return (
     <CardContainer
       style={[styles.card, shadowStyle, style]}
       onPress={onPress}
       disabled={disabled || !onPress}
-      activeOpacity={0.85}
+      activeOpacity={0.92}
       {...rest}
     >
       {headerTitle ? (
@@ -40,33 +40,33 @@ export default function NeoCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: NEO_COLORS.card,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.md,
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.lg, // 22px
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
     overflow: 'hidden',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   headerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: NEO_BORDERS.thick,
-    borderBottomColor: NEO_COLORS.border,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: PREMIUM_COLORS.divider,
   },
   defaultHeader: {
-    backgroundColor: NEO_COLORS.bgAlt,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
   },
   headerTitleText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
+    fontSize: 13,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
   body: {
-    padding: 14,
+    padding: 16,
   },
 });

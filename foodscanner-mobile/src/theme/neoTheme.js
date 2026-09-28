@@ -1,171 +1,103 @@
 /**
- * PRAMAAN Neo-Brutalist Design Tokens
- * Source of Truth: Neo Brutalism UI Component Library
- * 
- * Visual characteristics:
- * - Warm cream canvas
- * - Chunky 2-2.5px solid black outlines
- * - Hard offset black shadows (zero blur)
- * - Saturated, high-contrast retro accents (coral, yellow, cyan, purple, pink, orange, mint)
- * - Tactile pressed button states
- * - Sticker-like badges and pills
+ * PRAMAAN Theme Compatibility Bridge
+ * Bridges legacy NEO_* tokens directly into the new Premium Health-Tech Design System.
+ * Guarantees zero runtime breakage across any legacy screen references while immediately
+ * activating the calm, modern health-tech visual palette.
  */
 
+import {
+  PREMIUM_COLORS,
+  PREMIUM_SHADOWS,
+  PREMIUM_BORDERS,
+  PREMIUM_RADIUS,
+  PREMIUM_SPACING,
+  PREMIUM_TYPOGRAPHY,
+} from './premiumTheme';
+
 export const NEO_COLORS = {
-  // Canvas & Structure - Warm Cream + Black
-  bg: '#FAF6EE',         // Warm cream primary canvas (MUST STAY)
-  bgAlt: '#F2ECE1',      // Supporting warm cream for nested areas / input backgrounds
-  card: '#FFFFFF',       // Pure white card body
-  ink: '#111111',        // Pure dark ink for text and borders
-  border: '#111111',     // Standard solid black border (2-3px)
-  white: '#FFFFFF',
-  muted: '#6B665E',      // Neutral dark-gray for secondary text
-  mutedLight: '#DDD7CC', // Subtle divider border
+  // Canvas & Surfaces - Calm Natural Health Palette
+  bg: PREMIUM_COLORS.bg,               // #F7F8F3
+  bgAlt: PREMIUM_COLORS.bgAlt,         // #EEF2EA
+  card: PREMIUM_COLORS.card,           // #FFFFFF
+  ink: PREMIUM_COLORS.ink,             // #171A17
+  border: PREMIUM_COLORS.border,       // Subtle hairline border
+  borderLight: PREMIUM_COLORS.borderLight,
+  white: PREMIUM_COLORS.white,
+  muted: PREMIUM_COLORS.secondary,     // #70766F
+  mutedLight: PREMIUM_COLORS.mutedLight, // #9BA098
 
-  // Primary Brand Color
-  lime: '#B7FF00',       // Acid Lime: Primary CTA, active navigation, brand accent
-  primary: '#B7FF00',
+  // Primary Health Brand Colors
+  lime: PREMIUM_COLORS.primary,        // #B8D96B
+  primary: PREMIUM_COLORS.primary,
+  primaryDark: PREMIUM_COLORS.primaryDark,
+  primaryLight: PREMIUM_COLORS.primaryLight,
+  limeAccent: PREMIUM_COLORS.limeAccent,
 
-  // Secondary Functional Accents
-  electricBlue: '#19A7FF', // Electric Blue: Barcode scanner, technical data
-  blue: '#19A7FF',
-  cyan: '#19A7FF',         // Alias for scanner/data compatibility
+  // Technical & Functional Accents
+  electricBlue: PREMIUM_COLORS.blue,
+  blue: PREMIUM_COLORS.blue,
+  cyan: PREMIUM_COLORS.primary,
 
-  // AI Assistant Accent
-  violet: '#8B5CF6',     // Violet: AI Nutrition Assistant, RAG UI
-  purple: '#8B5CF6',
-  purpleLight: '#EDE9FE', // Soft violet tint
-  ai: '#8B5CF6',
+  // AI Assistant Accents
+  violet: PREMIUM_COLORS.ai,           // #8B7CF6
+  purple: PREMIUM_COLORS.ai,
+  purpleLight: PREMIUM_COLORS.aiBg,    // #F2EFFF
+  ai: PREMIUM_COLORS.ai,
+  aiBg: PREMIUM_COLORS.aiBg,
 
-  // Semantic Colors
-  green: '#20C997',      // SAFE / SUCCESS / positive health status
-  greenLight: '#D3F9ED',
-  yellow: '#FFB000',     // MODERATE / WARNING
-  amber: '#FFB000',
-  coral: '#FF4D4D',      // AVOID / DANGER
-  red: '#FF4D4D',
+  // Semantic Status Colors
+  green: PREMIUM_COLORS.safe,          // #557A3E
+  greenLight: PREMIUM_COLORS.safeBg,   // #E5F0D0
+  yellow: PREMIUM_COLORS.moderate,     // #B57900
+  amber: PREMIUM_COLORS.moderate,      // #B57900
+  amberLight: PREMIUM_COLORS.moderateBg,
+  coral: PREMIUM_COLORS.avoid,         // #D95C5C
+  red: PREMIUM_COLORS.avoid,           // #D95C5C
+  redLight: PREMIUM_COLORS.avoidBg,
 
-  // Decorative accents (sparingly used)
-  pink: '#F472B6',
-  pinkLight: '#FCE7F3',
-  orange: '#FB923C',
+  // Warm Editorial Accents
+  pink: '#F8E4D6',
+  pinkLight: '#FDF6F0',
+  orange: '#E88B54',
 
-  // Status mapping
-  status: {
-    safe: '#20C997',
-    safeBg: '#D3F9ED',
-    moderate: '#FFB000',
-    moderateBg: '#FFF3D6',
-    avoid: '#FF4D4D',
-    avoidBg: '#FFEBEB',
-    neutral: '#E8E4DA',
-  },
+  // Semantic Status Mapping
+  status: PREMIUM_COLORS.status,
 };
 
 export const NEO_SHADOWS = {
-  // Hard offset black shadows (No blur)
-  sm: {
-    shadowColor: '#111111',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
-  },
-  md: {
-    shadowColor: '#111111',
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 4,
-  },
-  lg: {
-    shadowColor: '#111111',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 6,
-  },
-  none: {
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
+  sm: PREMIUM_SHADOWS.sm,
+  md: PREMIUM_SHADOWS.md,
+  lg: PREMIUM_SHADOWS.lg,
+  none: PREMIUM_SHADOWS.none,
 };
 
 export const NEO_BORDERS = {
-  thin: 1.5,
-  regular: 2,
-  thick: 2.5,
-  extraThick: 3,
+  thin: 1,
+  regular: 1,
+  thick: 1,          // Hairline clean border replaces chunky 2.5px black lines
+  extraThick: 1.5,
 };
 
 export const NEO_RADIUS = {
-  xs: 4,
-  sm: 6,
-  md: 10,
-  lg: 14,
-  xl: 18,
+  xs: 6,
+  sm: 10,
+  md: 18,            // Soft rounded cards (was 10)
+  lg: 22,
+  xl: 26,
   pill: 999,
 };
 
-export const NEO_SPACING = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 28,
-};
+export const NEO_SPACING = PREMIUM_SPACING;
 
 export const NEO_TYPOGRAPHY = {
-  hero: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: -0.5,
-  },
-  h1: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: -0.5,
-  },
-  h2: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-  },
-  h3: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: NEO_COLORS.ink,
-  },
-  body: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: NEO_COLORS.ink,
-    lineHeight: 20,
-  },
-  bodyBold: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: NEO_COLORS.ink,
-    lineHeight: 20,
-  },
-  caption: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: NEO_COLORS.muted,
-  },
-  badge: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
+  hero: PREMIUM_TYPOGRAPHY.hero,
+  h1: PREMIUM_TYPOGRAPHY.h1,
+  h2: PREMIUM_TYPOGRAPHY.h2,
+  h3: PREMIUM_TYPOGRAPHY.h3,
+  body: PREMIUM_TYPOGRAPHY.body,
+  bodyBold: PREMIUM_TYPOGRAPHY.bodyBold,
+  caption: PREMIUM_TYPOGRAPHY.caption,
+  badge: PREMIUM_TYPOGRAPHY.badge,
 };
 
 export default {

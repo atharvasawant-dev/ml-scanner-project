@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../../theme/neoTheme';
+import { PREMIUM_COLORS, PREMIUM_SHADOWS, PREMIUM_RADIUS } from '../../theme/premiumTheme';
 
 export default function NeoInput({
   label,
@@ -14,15 +14,25 @@ export default function NeoInput({
   error,
   ...rest
 }) {
+  const [isFocused, setIsFocused] = useState(false);
+
   return (
     <View style={[styles.wrapper, containerStyle]}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <View style={[styles.inputBox, NEO_SHADOWS.sm, style]}>
+      <View
+        style={[
+          styles.inputBox,
+          isFocused ? styles.inputBoxFocused : null,
+          style,
+        ]}
+      >
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={NEO_COLORS.muted}
+          placeholderTextColor={PREMIUM_COLORS.muted}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           style={[styles.input, inputStyle]}
           {...rest}
         />
@@ -35,39 +45,43 @@ export default function NeoInput({
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
+    fontSize: 14,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
     marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.1,
   },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.md,
-    paddingHorizontal: 12,
+    backgroundColor: PREMIUM_COLORS.card,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
+    borderRadius: PREMIUM_RADIUS.md, // 16px
+    paddingHorizontal: 16,
+    ...PREMIUM_SHADOWS.sm,
+  },
+  inputBoxFocused: {
+    borderColor: PREMIUM_COLORS.primaryDark,
+    backgroundColor: PREMIUM_COLORS.card,
   },
   input: {
     flex: 1,
-    paddingVertical: 10,
-    fontSize: 14,
-    fontWeight: '700',
-    color: NEO_COLORS.ink,
+    paddingVertical: 12,
+    fontSize: 15,
+    fontWeight: '500',
+    color: PREMIUM_COLORS.ink,
   },
   rightBox: {
     marginLeft: 8,
   },
   errorText: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: '800',
-    color: NEO_COLORS.coral,
+    marginTop: 5,
+    fontSize: 12,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.status.avoid,
   },
 });

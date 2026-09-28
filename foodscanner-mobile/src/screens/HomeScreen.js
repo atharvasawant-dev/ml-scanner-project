@@ -1,29 +1,72 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Animated,
+  Image,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons, Feather } from '@expo/vector-icons';
 
-import { getDailyReport, getTodayFoods, getUserProfile } from '../services/api';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../theme/neoTheme';
+import { getDailyReport, getTodayFoods, getUserProfile, getHistory, scanProduct } from '../services/api';
+import {
+  PREMIUM_COLORS,
+  PREMIUM_SHADOWS,
+  PREMIUM_RADIUS,
+} from '../theme/premiumTheme';
+import { FoodImage } from '../components/premium';
 
-function _formatDate(d) {
-  try {
-    return new Date(d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
-  } catch {
-    return '';
-  }
-}
-
-function _scoreColor(score) {
-  const s = Number(score) || 0;
-  if (s >= 70) return NEO_COLORS.green;
-  if (s >= 45) return NEO_COLORS.yellow;
-  return NEO_COLORS.coral;
-}
+// Curated real food items corresponding to real benchmark packaged food categories
+// Sequence per specification: chips -> makhana -> wafers -> oats -> cereal -> snack
+const BENCHMARK_HERO_FOODS = [
+  {
+    name: 'Potato Crisps',
+    category: 'Crispy Snack',
+    uri: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Roasted Makhana',
+    category: 'Superfood',
+    uri: 'https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Spiced Wafers',
+    category: 'Crispy Namkeen',
+    uri: 'https://images.unsplash.com/photo-1621447504864-d8686e12698c?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Rolled Oats',
+    category: 'Whole Grain',
+    uri: 'https://images.unsplash.com/photo-1517093709121-657754b2d35b?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Enriched Cereal',
+    category: 'Breakfast Grain',
+    uri: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Wholesome Trail',
+    category: 'Healthy Snack',
+    uri: 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=600&q=80',
+  },
+];
 
 function _greeting(name) {
   const h = new Date().getHours();
-  const prefix = h < 12 ? 'GOOD MORNING' : h < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING';
-  return `${prefix}, ${String(name || '').toUpperCase()}!`;
+  const prefix = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  const display = name ? `, ${name}` : '';
+  return `${prefix}${display}`;
+}
+
+function _scoreMeta(score) {
+  const s = Number(score) || 0;
+  if (s >= 70) return { fg: PREMIUM_COLORS.status.safe, bg: PREMIUM_COLORS.status.safeBg, label: 'SAFE' };
+  if (s >= 45) return { fg: PREMIUM_COLORS.status.moderate, bg: PREMIUM_COLORS.status.moderateBg, label: 'MODERATE' };
+  return { fg: PREMIUM_COLORS.status.avoid, bg: PREMIUM_COLORS.status.avoidBg, label: 'AVOID' };
 }
 
 export default function HomeScreen({ navigation }) {
@@ -31,18 +74,39 @@ export default function HomeScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [report, setReport] = useState(null);
   const [todayFoods, setTodayFoods] = useState([]);
+  const [recentScans, setRecentScans] = useState([]);
 
-  const todayLabel = useMemo(() => _formatDate(new Date()), []);
+  // Screen entrance micro-motion
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(10)).current;
+
+  // Hero Card entrance and CTA tactile scale
+  const heroCardAnim = useRef(new Animated.Value(0)).current;
+  const heroCardSlide = useRef(new Animated.Value(10)).current;
+  const ctaScale = useRef(new Animated.Value(1)).current;
+
+  // Staggered quick actions entrance
+  const shortcutAnim1 = useRef(new Animated.Value(0)).current;
+  const shortcutAnim2 = useRef(new Animated.Value(0)).current;
+
+  // Dynamic food rotation state
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+  const heroImageOpacity = useRef(new Animated.Value(1)).current;
 
   const fetchData = React.useCallback(async () => {
-    setLoading(true);
     try {
-      const [p, r, t] = await Promise.all([getUserProfile(), getDailyReport(), getTodayFoods()]);
-      setProfile(p);
-      setReport(r);
-      setTodayFoods(Array.isArray(t?.foods) ? t.foods : []);
+      const [p, r, t, h] = await Promise.all([
+        getUserProfile().catch(() => null),
+        getDailyReport().catch(() => null),
+        getTodayFoods().catch(() => null),
+        getHistory().catch(() => null),
+      ]);
+      if (p) setProfile(p);
+      if (r) setReport(r);
+      if (t) setTodayFoods(Array.isArray(t?.foods) ? t.foods : []);
+      if (h) setRecentScans(Array.isArray(h) ? h : Array.isArray(h?.history) ? h.history : []);
     } catch (_e) {
-      // Gracefully retain existing/default state on temporary network hiccups
+      // Gracefully retain existing state on network hiccup
     } finally {
       setLoading(false);
     }
@@ -58,12 +122,117 @@ export default function HomeScreen({ navigation }) {
     }, [fetchData])
   );
 
-  const name = profile?.name || 'there';
-  const overallScore = report?.overall_score ?? 0;
-  const calories = report?.nutrition_breakdown?.calories;
-  const caloriePct = calories?.limit ? Math.min(1, (calories.consumed || 0) / calories.limit) : 0;
+  // Entrance micro-motion triggers
+  useEffect(() => {
+    if (!loading) {
+      // Screen entrance
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heroCardAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heroCardSlide, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-  const scoreBadgeBg = _scoreColor(overallScore);
+      // Subtle quick shortcuts stagger (100ms)
+      Animated.stagger(100, [
+        Animated.timing(shortcutAnim1, {
+          toValue: 1,
+          duration: 320,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shortcutAnim2, {
+          toValue: 1,
+          duration: 320,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [loading, fadeAnim, slideAnim, heroCardAnim, heroCardSlide, shortcutAnim1, shortcutAnim2]);
+
+  // Merge real product images from scan history with curated benchmark foods
+  const heroFoodList = useMemo(() => {
+    const scansWithImages = recentScans
+      .filter((s) => s?.image_url && typeof s.image_url === 'string' && s.image_url.startsWith('http'))
+      .map((s) => ({
+        name: s.product_name || s.name || 'Scanned Food',
+        category: 'Recent Scan',
+        uri: s.image_url,
+      }));
+
+    if (scansWithImages.length > 0) {
+      return [...scansWithImages, ...BENCHMARK_HERO_FOODS];
+    }
+    return BENCHMARK_HERO_FOODS;
+  }, [recentScans]);
+
+  // Dynamic hero image rotation: 4 second interval, subtle 450ms crossfade
+  useEffect(() => {
+    if (heroFoodList.length <= 1) return;
+
+    const interval = setInterval(() => {
+      Animated.timing(heroImageOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setActiveHeroIndex((prev) => (prev + 1) % heroFoodList.length);
+        Animated.timing(heroImageOpacity, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 4200);
+
+    return () => clearInterval(interval);
+  }, [heroFoodList.length, heroImageOpacity]);
+
+  const currentHeroFood = heroFoodList[activeHeroIndex] || BENCHMARK_HERO_FOODS[0];
+
+  const handleCtaPressIn = () => {
+    Animated.spring(ctaScale, {
+      toValue: 0.97,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleCtaPressOut = () => {
+    Animated.spring(ctaScale, {
+      toValue: 1,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const name = profile?.name || '';
+  const greeting = useMemo(() => _greeting(name), [name]);
+  const overallScore = report?.overall_score ?? 0;
+  const scoreMeta = _scoreMeta(overallScore);
+
+  const calories = report?.nutrition_breakdown?.calories;
+  const consumedKcal = Number(calories?.consumed) || 0;
+  const limitKcal = Number(calories?.limit) || 2000;
+  const caloriePct = limitKcal > 0 ? Math.min(1, consumedKcal / limitKcal) : 0;
+
+  const protein = report?.nutrition_breakdown?.protein;
+  const carbs = report?.nutrition_breakdown?.carbs;
+  const sugar = report?.nutrition_breakdown?.sugar;
 
   const foodsTodayOnly = useMemo(() => {
     const arr = Array.isArray(todayFoods) ? todayFoods : [];
@@ -74,630 +243,871 @@ export default function HomeScreen({ navigation }) {
     });
   }, [todayFoods]);
 
-  const hasFoods = foodsTodayOnly.length > 0;
-  const greeting = useMemo(() => _greeting(name), [name]);
-
-  const consumedKcal = Number(calories?.consumed) || 0;
-  const limitKcal = Number(calories?.limit) || 2000;
-  const scansCount = foodsTodayOnly.length;
+  const handleRescan = async (barcode, productName) => {
+    if (!barcode && !productName) return;
+    try {
+      const code = barcode && String(barcode) !== '00000000' ? String(barcode) : '00000000';
+      const result = await scanProduct(code, productName || null);
+      navigation.navigate('Result', { result, timestamp: Date.now() });
+    } catch (_e) {
+      navigation.navigate('Main', { screen: 'Scan' });
+    }
+  };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={NEO_COLORS.ink} />
-        <Text style={styles.loadingText}>LOADING PRAMAAN DASHBOARD...</Text>
+        <ActivityIndicator size="large" color={PREMIUM_COLORS.primaryDark} />
+        <Text style={styles.loadingText}>Opening your nutrition dashboard...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
-        {/* 1. Brand & Header Bar */}
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.brandRow}>
-              <View style={styles.brandTag}>
-                <Text style={styles.brandTagText}>PRAMAAN</Text>
-              </View>
-              <View style={styles.dateBadge}>
-                <Text style={styles.dateBadgeText}>{todayLabel}</Text>
-              </View>
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          {/* 1. Refined Editorial Header & Greeting */}
+          <View style={styles.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greeting}>{greeting}</Text>
+              <Text style={styles.heroTitle}>Let's understand{"\n"}what you eat.</Text>
+              <Text style={styles.heroSub}>Scan food. Understand better.</Text>
             </View>
-            <Text style={styles.editorialHeading}>KNOW WHAT{"\n"}YOU EAT.</Text>
-            <Text style={styles.editorialSub}>Scan. Understand. Decide.</Text>
-            <Text style={styles.greetingText}>{greeting}</Text>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('Main', { screen: 'Profile' })}
+              style={[styles.avatarCircle, PREMIUM_SHADOWS.sm]}
+            >
+              {name ? (
+                <Text style={styles.avatarInitials}>
+                  {name.slice(0, 2).toUpperCase()}
+                </Text>
+              ) : (
+                <Ionicons name="person-outline" size={20} color={PREMIUM_COLORS.primaryDark} />
+              )}
+            </TouchableOpacity>
           </View>
 
-          {/* Daily Health Score Badge */}
-          <View style={[styles.scoreBadgeBox, { backgroundColor: scoreBadgeBg }, NEO_SHADOWS.sm]}>
-            <Text style={styles.scoreBadgeVal}>{Number(overallScore) || 0}</Text>
-            <Text style={styles.scoreBadgeSub}>SCORE</Text>
-          </View>
-        </View>
-
-        {/* 2. Primary Scan CTA Hero Button */}
-        <TouchableOpacity
-          style={[styles.primaryScanBtn, NEO_SHADOWS.lg]}
-          activeOpacity={0.88}
-          onPress={() => navigation.navigate('Main', { screen: 'Scan' })}
-        >
-          <View style={styles.scanBtnLeft}>
-            <View style={styles.scanIconBox}>
-              <Text style={styles.scanIconEmoji}>📷</Text>
-            </View>
-            <View>
-              <Text style={styles.scanBtnTitle}>SCAN PRODUCT →</Text>
-              <Text style={styles.scanBtnSub}>Instant FSSAI, NutriScore & Hazard Audit</Text>
-            </View>
-          </View>
-          <View style={styles.arrowBox}>
-            <Text style={styles.arrowText}>→</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* 3. Secondary Quick Actions */}
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity
-            style={[styles.quickCard, NEO_SHADOWS.sm]}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('ManualEntry')}
+          {/* 2. Hero Editorial Scanner Card with Dynamic Food Imagery */}
+          <Animated.View
+            style={[
+              styles.heroScannerCard,
+              PREMIUM_SHADOWS.md,
+              {
+                opacity: heroCardAnim,
+                transform: [{ translateY: heroCardSlide }],
+              },
+            ]}
           >
-            <View style={styles.quickTopRow}>
-              <Text style={styles.quickEmoji}>✏️</Text>
-              <View style={[styles.quickTag, { backgroundColor: NEO_COLORS.electricBlue }]}>
-                <Text style={styles.quickTagText}>DATA</Text>
+            <View style={styles.heroRow}>
+              {/* Left Column: Text & CTA Button */}
+              <View style={styles.heroLeftCol}>
+                <View style={styles.heroBadge}>
+                  <View style={styles.heroBadgeDot} />
+                  <Text style={styles.heroBadgeText}>AI SCANNER</Text>
+                </View>
+
+                <Text style={styles.scannerCardTitle}>Understand what you eat.</Text>
+                <Text style={styles.scannerCardSub}>
+                  Scan a packaged food to understand its nutrition, ingredients and health signals.
+                </Text>
+
+                <Animated.View style={{ transform: [{ scale: ctaScale }], alignSelf: 'flex-start' }}>
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={[styles.scannerCtaBtn, PREMIUM_SHADOWS.sm]}
+                    onPressIn={handleCtaPressIn}
+                    onPressOut={handleCtaPressOut}
+                    onPress={() => navigation.navigate('Main', { screen: 'Scan' })}
+                  >
+                    <Ionicons name="barcode-outline" size={18} color={PREMIUM_COLORS.white} />
+                    <Text style={styles.scannerCtaText}>Scan Product</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
+
+              {/* Right Column: Editorial Food Photography Container */}
+              <View style={styles.heroRightCol}>
+                <View style={[styles.heroImageFrame, PREMIUM_SHADOWS.md]}>
+                  <Animated.Image
+                    source={{ uri: currentHeroFood.uri }}
+                    style={[styles.heroImage, { opacity: heroImageOpacity }]}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.heroImageTagPill}>
+                    <Text style={styles.heroImageTagText} numberOfLines={1}>
+                      {currentHeroFood.name}
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
-            <Text style={styles.quickTitle}>MANUAL ENTRY</Text>
-            <Text style={styles.quickSub}>Type nutrition data</Text>
-          </TouchableOpacity>
+          </Animated.View>
 
-          <TouchableOpacity
-            style={[styles.quickCard, NEO_SHADOWS.sm]}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('OCRScan')}
-          >
-            <View style={styles.quickTopRow}>
-              <Text style={styles.quickEmoji}>📸</Text>
-              <View style={[styles.quickTag, { backgroundColor: NEO_COLORS.violet }]}>
-                <Text style={[styles.quickTagText, { color: NEO_COLORS.white }]}>VISION</Text>
+          {/* 3. Quick Action Shortcuts with subtle stagger */}
+          <View style={styles.quickShortcutsRow}>
+            <Animated.View style={{ flex: 1, opacity: shortcutAnim1 }}>
+              <TouchableOpacity
+                style={[styles.shortcutCard, PREMIUM_SHADOWS.sm]}
+                activeOpacity={0.88}
+                onPress={() => navigation.navigate('ManualEntry')}
+              >
+                <View style={[styles.shortcutIconWrap, { backgroundColor: '#EBF4FE' }]}>
+                  <Feather name="edit-3" size={18} color="#2563EB" />
+                </View>
+                <View style={styles.shortcutTextWrap}>
+                  <Text style={styles.shortcutTitle}>Manual Entry</Text>
+                  <Text style={styles.shortcutSub}>Type nutrition data</Text>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+
+            <Animated.View style={{ flex: 1, opacity: shortcutAnim2 }}>
+              <TouchableOpacity
+                style={[styles.shortcutCard, PREMIUM_SHADOWS.sm]}
+                activeOpacity={0.88}
+                onPress={() => navigation.navigate('OCRScan')}
+              >
+                <View style={[styles.shortcutIconWrap, { backgroundColor: PREMIUM_COLORS.aiBg }]}>
+                  <Ionicons name="camera-outline" size={20} color={PREMIUM_COLORS.ai} />
+                </View>
+                <View style={styles.shortcutTextWrap}>
+                  <Text style={styles.shortcutTitle}>OCR Scanner</Text>
+                  <Text style={styles.shortcutSub}>Capture photo of table</Text>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+
+          {/* 4. Daily Nutrition Summary */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Daily Nutrition</Text>
+            <View style={[styles.overallScorePill, { backgroundColor: scoreMeta.bg }]}>
+              <View style={[styles.scoreDot, { backgroundColor: scoreMeta.fg }]} />
+              <Text style={[styles.overallScoreText, { color: scoreMeta.fg }]}>
+                Score {overallScore}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.nutritionGrid}>
+            <View style={[styles.nutritionCard, PREMIUM_SHADOWS.sm]}>
+              <View style={styles.macroTopRow}>
+                <Ionicons name="flame-outline" size={15} color="#EA580C" />
+                <Text style={styles.macroTag}>Calories</Text>
+              </View>
+              <Text style={styles.macroValue}>{consumedKcal}</Text>
+              <Text style={styles.macroSub}>of {limitKcal} kcal</Text>
+              <View style={styles.macroProgressTrack}>
+                <View
+                  style={[
+                    styles.macroProgressFill,
+                    {
+                      width: `${caloriePct * 100}%`,
+                      backgroundColor: caloriePct > 1 ? PREMIUM_COLORS.status.avoid : PREMIUM_COLORS.primaryDark,
+                    },
+                  ]}
+                />
               </View>
             </View>
-            <Text style={styles.quickTitle}>OCR LABEL</Text>
-            <Text style={styles.quickSub}>Photo text extract</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* 4. Daily Nutrition Stat Pills */}
-        <View style={styles.statsGrid}>
-          <View style={[styles.statBox, NEO_SHADOWS.sm]}>
-            <View style={[styles.statTag, { backgroundColor: NEO_COLORS.lime }]}>
-              <Text style={styles.statTagText}>TODAY'S CALORIES</Text>
+            <View style={[styles.nutritionCard, PREMIUM_SHADOWS.sm]}>
+              <View style={styles.macroTopRow}>
+                <Ionicons name="leaf-outline" size={15} color={PREMIUM_COLORS.primaryDark} />
+                <Text style={styles.macroTag}>Protein</Text>
+              </View>
+              <Text style={styles.macroValue}>{Number(protein?.consumed || 0)}g</Text>
+              <Text style={styles.macroSub}>limit {protein?.limit || 50}g</Text>
+              <View style={styles.macroProgressTrack}>
+                <View
+                  style={[
+                    styles.macroProgressFill,
+                    {
+                      width: `${Math.min(100, ((protein?.consumed || 0) / (protein?.limit || 50)) * 100)}%`,
+                      backgroundColor: PREMIUM_COLORS.primary,
+                    },
+                  ]}
+                />
+              </View>
             </View>
-            <Text style={styles.statNum}>{consumedKcal}</Text>
-            <Text style={styles.statTarget}>of {limitKcal} kcal</Text>
-          </View>
 
-          <View style={[styles.statBox, NEO_SHADOWS.sm]}>
-            <View style={[styles.statTag, { backgroundColor: NEO_COLORS.bgAlt }]}>
-              <Text style={styles.statTagText}>PRODUCTS SCANNED</Text>
+            <View style={[styles.nutritionCard, PREMIUM_SHADOWS.sm]}>
+              <View style={styles.macroTopRow}>
+                <Ionicons name="nutrition-outline" size={15} color="#D97706" />
+                <Text style={styles.macroTag}>Carbs</Text>
+              </View>
+              <Text style={styles.macroValue}>{Number(carbs?.consumed || 0)}g</Text>
+              <Text style={styles.macroSub}>limit {carbs?.limit || 250}g</Text>
+              <View style={styles.macroProgressTrack}>
+                <View
+                  style={[
+                    styles.macroProgressFill,
+                    {
+                      width: `${Math.min(100, ((carbs?.consumed || 0) / (carbs?.limit || 250)) * 100)}%`,
+                      backgroundColor: '#E8B342',
+                    },
+                  ]}
+                />
+              </View>
             </View>
-            <Text style={styles.statNum}>{scansCount}</Text>
-            <Text style={styles.statTarget}>items logged</Text>
-          </View>
 
-          <View style={[styles.statBox, NEO_SHADOWS.sm]}>
-            <View style={[styles.statTag, { backgroundColor: scoreBadgeBg }]}>
-              <Text style={styles.statTagText}>HEALTH SCORE</Text>
+            <View style={[styles.nutritionCard, PREMIUM_SHADOWS.sm]}>
+              <View style={styles.macroTopRow}>
+                <Ionicons name="water-outline" size={15} color="#0D9488" />
+                <Text style={styles.macroTag}>Sugar</Text>
+              </View>
+              <Text style={styles.macroValue}>{Number(sugar?.consumed || 0)}g</Text>
+              <Text style={styles.macroSub}>limit {sugar?.limit || 25}g</Text>
+              <View style={styles.macroProgressTrack}>
+                <View
+                  style={[
+                    styles.macroProgressFill,
+                    {
+                      width: `${Math.min(100, ((sugar?.consumed || 0) / (sugar?.limit || 25)) * 100)}%`,
+                      backgroundColor: (sugar?.consumed || 0) > (sugar?.limit || 25) ? PREMIUM_COLORS.status.avoid : '#9DB176',
+                    },
+                  ]}
+                />
+              </View>
             </View>
-            <Text style={styles.statNum}>{Number(overallScore) || 0}</Text>
-            <Text style={styles.statTarget}>out of 100</Text>
           </View>
-        </View>
 
-        {/* 5. Calorie Budget Progress Card */}
-        <View style={[styles.budgetCard, NEO_SHADOWS.md]}>
-          <View style={styles.budgetHeader}>
-            <Text style={styles.budgetTitle}>DAILY CALORIE BUDGET</Text>
-            <Text style={styles.budgetPct}>{Math.round(caloriePct * 100)}% CONSUMED</Text>
+          {/* 5. Recent Scans Carousel */}
+          <View style={[styles.sectionHeaderRow, { marginTop: 26 }]}>
+            <Text style={styles.sectionTitle}>Recent Scans</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('Main', { screen: 'Scan' })}
+            >
+              <Text style={styles.sectionAction}>View all</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.budgetTrack}>
-            <View
-              style={[
-                styles.budgetFill,
-                {
-                  width: `${caloriePct * 100}%`,
-                  backgroundColor: caloriePct > 1 ? NEO_COLORS.coral : caloriePct > 0.85 ? NEO_COLORS.amber : NEO_COLORS.lime,
-                },
-              ]}
-            />
-          </View>
-          <View style={styles.budgetFooter}>
-            <Text style={styles.budgetKcal}>{consumedKcal} kcal consumed</Text>
-            <Text style={styles.budgetRemaining}>
-              {Math.max(0, limitKcal - consumedKcal)} kcal remaining
+
+          {recentScans && recentScans.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.recentScansRow}
+            >
+              {recentScans.slice(0, 6).map((item, idx) => {
+                const pName = item?.product_name || item?.name || 'Scanned Product';
+                const pScore = item?.health_score != null ? Math.round(Number(item.health_score)) : 72;
+                const pMeta = _scoreMeta(pScore);
+                const barcode = item?.barcode;
+
+                return (
+                  <TouchableOpacity
+                    key={item?.id || idx}
+                    activeOpacity={0.9}
+                    style={[styles.recentScanCard, PREMIUM_SHADOWS.sm]}
+                    onPress={() => handleRescan(barcode, pName)}
+                  >
+                    <FoodImage
+                      source={item?.image_url}
+                      productName={pName}
+                      size={144}
+                      height={96}
+                      borderRadius={PREMIUM_RADIUS.md}
+                    />
+                    <Text style={styles.recentScanName} numberOfLines={1}>
+                      {pName}
+                    </Text>
+                    <View style={styles.recentScanFooter}>
+                      <View style={[styles.recentScorePill, { backgroundColor: pMeta.bg }]}>
+                        <View style={[styles.scoreDot, { backgroundColor: pMeta.fg }]} />
+                        <Text style={[styles.recentScoreText, { color: pMeta.fg }]}>
+                          {pScore}
+                        </Text>
+                      </View>
+                      <Text style={styles.recentActionHint}>Tap to view →</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <View style={[styles.emptyRecentCard, PREMIUM_SHADOWS.sm]}>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="barcode-outline" size={26} color={PREMIUM_COLORS.secondary} />
+              </View>
+              <Text style={styles.emptyRecentTitle}>No products scanned yet</Text>
+              <Text style={styles.emptyRecentSub}>
+                Scan your first packaged food to see ingredient safety & NutriScore analysis here.
+              </Text>
+            </View>
+          )}
+
+          {/* 6. AI Nutrition Assistant Section */}
+          <View style={[styles.aiCard, PREMIUM_SHADOWS.sm]}>
+            <View style={styles.aiHeaderRow}>
+              <View style={styles.aiBadge}>
+                <Ionicons name="sparkles" size={13} color={PREMIUM_COLORS.ai} />
+                <Text style={styles.aiBadgeText}>PRAMAAN AI</Text>
+              </View>
+              <Text style={styles.aiStatusDot}>● Online</Text>
+            </View>
+            <Text style={styles.aiTitle}>Ask Pramaan AI</Text>
+            <Text style={styles.aiSub}>
+              Understand ingredients, decode nutritional jargon & verify health claims instantly.
             </Text>
-          </View>
-        </View>
 
-        {/* 6. Today's Diary / Food Intake */}
-        <View style={styles.sectionHeadingRow}>
-          <View style={styles.headingMarker} />
-          <Text style={styles.sectionHeading}>TODAY'S FOOD INTAKE</Text>
-          <View style={styles.foodCountBadge}>
-            <Text style={styles.foodCountText}>{foodsTodayOnly.length} ITEMS</Text>
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={[styles.aiCtaBtn, PREMIUM_SHADOWS.sm]}
+              onPress={() => navigation.navigate('Main', { screen: 'Scan' })}
+            >
+              <Text style={styles.aiCtaText}>Ask AI →</Text>
+            </TouchableOpacity>
           </View>
-        </View>
 
-        {!hasFoods ? (
-          <View style={[styles.emptyWrap, NEO_SHADOWS.sm]}>
-            <Text style={styles.emptyIcon}>🥫</Text>
-            <Text style={styles.emptyTitle}>NO INTAKE LOGGED TODAY</Text>
-            <Text style={styles.emptySubtitle}>
-              Scan food items and tap "+ Log to Daily Diary" on results to record your intake.
-            </Text>
+          {/* 7. Today's Consumption Diary */}
+          <View style={[styles.sectionHeaderRow, { marginTop: 26 }]}>
+            <Text style={styles.sectionTitle}>Today's Intake</Text>
+            <Text style={styles.sectionCountText}>{foodsTodayOnly.length} items logged</Text>
           </View>
-        ) : (
-          foodsTodayOnly.map((f, idx) => {
-            const prodName = f?.product_name || f?.name || f?.product || `Product ${idx + 1}`;
-            const kcal = Number(f?.calories) || 0;
-            return (
-              <View key={idx} style={[styles.diaryItemRow, NEO_SHADOWS.sm]}>
-                <View style={styles.diaryIconBox}>
-                  <Text style={{ fontSize: 18 }}>🍽️</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.diaryProdName} numberOfLines={1}>{prodName}</Text>
-                  <Text style={styles.diaryMeta}>{kcal} kcal</Text>
-                </View>
-                <View style={styles.loggedBadge}>
-                  <Text style={styles.loggedBadgeText}>SAFE LOG</Text>
-                </View>
+
+          {foodsTodayOnly.length === 0 ? (
+            <View style={[styles.emptyDiaryCard, PREMIUM_SHADOWS.sm]}>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="restaurant-outline" size={24} color={PREMIUM_COLORS.secondary} />
               </View>
-            );
-          })
-        )}
+              <Text style={styles.emptyDiaryTitle}>Nothing consumed yet today</Text>
+              <Text style={styles.emptyDiarySub}>
+                Scanning a product never logs it automatically. Tap "+ Log to Daily Diary" on any product result to record intake.
+              </Text>
+            </View>
+          ) : (
+            foodsTodayOnly.map((f, idx) => {
+              const pName = f?.product_name || f?.name || `Meal item ${idx + 1}`;
+              const kcal = Number(f?.calories) || 0;
+              return (
+                <View key={f?.id || idx} style={[styles.diaryItemCard, PREMIUM_SHADOWS.sm]}>
+                  <View style={styles.diaryIconBox}>
+                    <Ionicons name="restaurant-outline" size={18} color={PREMIUM_COLORS.primaryDark} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.diaryItemName} numberOfLines={1}>{pName}</Text>
+                    <Text style={styles.diaryItemTime}>
+                      Logged {f?.consumed_at ? new Date(f.consumed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'today'}
+                    </Text>
+                  </View>
+                  <View style={styles.diaryKcalBadge}>
+                    <Text style={styles.diaryKcalText}>{kcal} kcal</Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </Animated.View>
       </ScrollView>
-
-      {/* Floating Bottom Quick Scan Bar */}
-      <View style={styles.bottomBarContainer}>
-        <TouchableOpacity
-          style={[styles.floatingScanBtn, NEO_SHADOWS.md]}
-          activeOpacity={0.88}
-          onPress={() => navigation.navigate('Main', { screen: 'Scan' })}
-        >
-          <Text style={styles.floatingScanText}>📷 SCAN PRODUCT →</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: NEO_COLORS.bg,
+    backgroundColor: PREMIUM_COLORS.bg,
+  },
+  scrollContent: {
+    padding: 18,
+    paddingTop: 52,
+    paddingBottom: 110,
   },
   center: {
     flex: 1,
+    backgroundColor: PREMIUM_COLORS.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: NEO_COLORS.bg,
+    gap: 12,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 12,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.5,
+    fontSize: 14,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.secondary,
   },
+
+  // 1. Header
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingTop: 8,
+    marginBottom: 20,
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  brandTag: {
-    backgroundColor: NEO_COLORS.lime,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  brandTagText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 1,
-  },
-  dateBadge: {
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  dateBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: NEO_COLORS.muted,
-  },
-  editorialHeading: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: -0.8,
-    lineHeight: 28,
-    marginTop: 6,
-    textTransform: 'uppercase',
-  },
-  editorialSub: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: NEO_COLORS.muted,
-    letterSpacing: 0.3,
-    marginTop: 3,
+  greeting: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.primaryDark,
     marginBottom: 4,
   },
-  greetingText: {
-    fontSize: 12,
+  heroTitle: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    letterSpacing: -0.6,
+    lineHeight: 36,
+  },
+  heroSub: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    marginTop: 4,
+  },
+  avatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: PREMIUM_COLORS.card,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.primaryDark,
+  },
+
+  // 2. Editorial Hero Scanner Card
+  heroScannerCard: {
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.xl,
+    padding: 18,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(85, 122, 62, 0.14)',
+  },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  heroLeftCol: {
+    flex: 1.25,
+  },
+  heroRightCol: {
+    flex: 0.95,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.primaryLight,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: PREMIUM_RADIUS.pill,
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginBottom: 10,
+  },
+  heroBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: PREMIUM_COLORS.primaryDark,
+  },
+  heroBadgeText: {
+    fontSize: 10,
     fontWeight: '800',
-    color: NEO_COLORS.muted,
+    color: PREMIUM_COLORS.primaryDark,
+    letterSpacing: 0.6,
+  },
+  scannerCardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    letterSpacing: -0.3,
+    marginBottom: 6,
+    lineHeight: 25,
+  },
+  scannerCardSub: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  scannerCtaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.ink,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: PREMIUM_RADIUS.pill,
+    gap: 7,
+  },
+  scannerCtaText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.white,
     letterSpacing: 0.2,
   },
-  scoreBadgeBox: {
-    width: 60,
-    height: 60,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.sm,
+
+  // Hero Right Column Image Frame
+  heroImageFrame: {
+    width: 122,
+    height: 134,
+    borderRadius: 20,
+    backgroundColor: PREMIUM_COLORS.primaryLight,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(23, 26, 23, 0.05)',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImageTagPill: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    right: 6,
+    backgroundColor: 'rgba(23, 26, 23, 0.76)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: PREMIUM_RADIUS.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scoreBadgeVal: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
+  heroImageTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
-  scoreBadgeSub: {
-    fontSize: 8,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.5,
-  },
-  primaryScanBtn: {
-    backgroundColor: NEO_COLORS.lime,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.md,
-    padding: 14,
+
+  // 3. Quick Shortcuts
+  quickShortcutsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  scanBtnLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 12,
+    marginBottom: 20,
+  },
+  shortcutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.card,
+    padding: 13,
+    borderRadius: PREMIUM_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
+    gap: 10,
+  },
+  shortcutIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shortcutTextWrap: {
     flex: 1,
   },
-  scanIconBox: {
-    width: 44,
-    height: 44,
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scanIconEmoji: {
-    fontSize: 22,
-  },
-  scanBtnTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.3,
-  },
-  scanBtnSub: {
-    fontSize: 11,
+  shortcutTitle: {
+    fontSize: 13,
     fontWeight: '700',
-    color: NEO_COLORS.ink,
-    marginTop: 2,
+    color: PREMIUM_COLORS.ink,
   },
-  arrowBox: {
-    width: 32,
-    height: 32,
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
+  shortcutSub: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    marginTop: 1,
+  },
+
+  // 4. Section Headers & Nutrition Grid
+  sectionHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  arrowText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-  },
-  quickActionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 14,
-  },
-  quickCard: {
-    flex: 1,
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.md,
-    padding: 12,
-  },
-  quickTopRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    letterSpacing: -0.2,
+  },
+  sectionAction: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.primaryDark,
+  },
+  sectionCountText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: PREMIUM_COLORS.secondary,
+  },
+  overallScorePill: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: PREMIUM_RADIUS.pill,
+    gap: 5,
+  },
+  scoreDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  overallScoreText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  nutritionGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  nutritionCard: {
+    flex: 1,
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.lg,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
+  },
+  macroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginBottom: 6,
   },
-  quickTag: {
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  quickTagText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.5,
-  },
-  quickEmoji: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  quickTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.3,
-  },
-  quickSub: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: NEO_COLORS.ink,
-    marginTop: 2,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.sm,
-    padding: 10,
-    alignItems: 'center',
-  },
-  statTag: {
-    backgroundColor: NEO_COLORS.cyan,
-    borderWidth: 1,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    marginBottom: 4,
-  },
-  statTagText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.3,
-  },
-  statNum: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-  },
-  statTarget: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: NEO_COLORS.muted,
-    marginTop: 2,
-  },
-  budgetCard: {
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.md,
-    padding: 14,
-    marginBottom: 16,
-  },
-  budgetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  budgetTitle: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.4,
-  },
-  budgetPct: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: NEO_COLORS.muted,
-  },
-  budgetTrack: {
-    height: 14,
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: 7,
-    overflow: 'hidden',
-  },
-  budgetFill: {
-    height: '100%',
-    borderRightWidth: 2,
-    borderRightColor: NEO_COLORS.border,
-  },
-  budgetFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  budgetKcal: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: NEO_COLORS.ink,
-  },
-  budgetRemaining: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: NEO_COLORS.muted,
-  },
-  sectionHeadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  headingMarker: {
-    width: 8,
-    height: 8,
-    backgroundColor: NEO_COLORS.coral,
-    borderRadius: 2,
-    transform: [{ rotate: '45deg' }],
-  },
-  sectionHeading: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.5,
-    flex: 1,
-  },
-  foodCountBadge: {
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderWidth: 1,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  foodCountText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.muted,
-  },
-  emptyWrap: {
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.md,
-    padding: 20,
-    alignItems: 'center',
-    borderStyle: 'dashed',
-  },
-  emptyIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.5,
-  },
-  emptySubtitle: {
+  macroTag: {
     fontSize: 12,
     fontWeight: '600',
-    color: NEO_COLORS.muted,
-    textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 16,
+    color: PREMIUM_COLORS.secondary,
   },
-  diaryItemRow: {
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.sm,
-    padding: 12,
-    marginBottom: 10,
+  macroValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    letterSpacing: -0.3,
+  },
+  macroSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: PREMIUM_COLORS.muted,
+    marginBottom: 8,
+  },
+  macroProgressTrack: {
+    height: 4,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  macroProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+
+  // 5. Recent Scans
+  recentScansRow: {
+    paddingVertical: 4,
+    gap: 14,
+  },
+  recentScanCard: {
+    width: 164,
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.lg,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
+  },
+  recentScanName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  recentScanFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
+    marginTop: 4,
   },
-  diaryIconBox: {
-    width: 36,
-    height: 36,
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
+  recentScorePill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: PREMIUM_RADIUS.pill,
+    gap: 4,
   },
-  diaryProdName: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-  },
-  diaryMeta: {
+  recentScoreText: {
     fontSize: 11,
     fontWeight: '700',
-    color: NEO_COLORS.muted,
-    marginTop: 2,
   },
-  loggedBadge: {
-    backgroundColor: NEO_COLORS.greenLight,
+  recentActionHint: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: PREMIUM_COLORS.muted,
+  },
+  emptyRecentCard: {
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.lg,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: NEO_COLORS.green,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderColor: PREMIUM_COLORS.border,
   },
-  loggedBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#1e5222',
+  emptyIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
-  bottomBarContainer: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 16,
+  emptyRecentTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
   },
-  floatingScanBtn: {
-    backgroundColor: NEO_COLORS.lime,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.md,
-    paddingVertical: 14,
+  emptyRecentSub: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    textAlign: 'center',
+    marginTop: 4,
+    maxWidth: 240,
+    lineHeight: 18,
+  },
+
+  // 6. AI Section
+  aiCard: {
+    backgroundColor: PREMIUM_COLORS.status.aiBg,
+    borderRadius: PREMIUM_RADIUS.xl,
+    padding: 18,
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.status.aiBorder,
+  },
+  aiHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  aiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: PREMIUM_RADIUS.pill,
+    gap: 4,
+  },
+  aiBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: PREMIUM_COLORS.ai,
+    letterSpacing: 0.5,
+  },
+  aiStatusDot: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#7C3AED',
+  },
+  aiTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    marginBottom: 4,
+  },
+  aiSub: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  aiCtaBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: PREMIUM_COLORS.ai,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: PREMIUM_RADIUS.pill,
+  },
+  aiCtaText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.white,
+  },
+
+  // 7. Today's Diary
+  diaryItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.lg,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
+    gap: 12,
+  },
+  diaryIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  floatingScanText: {
+  diaryItemName: {
     fontSize: 14,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.8,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+  },
+  diaryItemTime: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    marginTop: 2,
+  },
+  diaryKcalBadge: {
+    backgroundColor: PREMIUM_COLORS.bgAlt,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: PREMIUM_RADIUS.pill,
+  },
+  diaryKcalText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+  },
+  emptyDiaryCard: {
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.lg,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
+  },
+  emptyDiaryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+  },
+  emptyDiarySub: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 18,
   },
 });

@@ -1,14 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS } from '../../theme/neoTheme';
+import { PREMIUM_COLORS, PREMIUM_RADIUS } from '../../theme/premiumTheme';
 
 export default function NeoBadge({
   label,
   text,
   children,
   color,
-  variant = 'lime', // lime, blue/cyan, violet/purple, green/safe, amber/yellow, coral/red, white, gray
+  variant = 'lime', // lime, safe/green, moderate/amber, avoid/coral, ai/violet, gray
   icon = null,
+  showDot = false,
   size = 'md',      // sm, md
   style,
   textStyle,
@@ -16,65 +17,86 @@ export default function NeoBadge({
   const badgeText = label !== undefined ? label : text;
   const badgeColor = color || variant;
 
-  const getColorBg = () => {
+  const getThemeMeta = () => {
     switch (badgeColor) {
-      case 'lime':
-      case 'primary':
-        return NEO_COLORS.lime;
       case 'coral':
       case 'red':
       case 'avoid':
       case 'danger':
-        return NEO_COLORS.coral;
+        return {
+          bg: PREMIUM_COLORS.status.avoidBg,
+          text: PREMIUM_COLORS.status.avoid,
+          dot: PREMIUM_COLORS.status.avoid,
+        };
       case 'green':
       case 'safe':
       case 'success':
-        return NEO_COLORS.green;
-      case 'electricBlue':
-      case 'blue':
-      case 'cyan':
-        return NEO_COLORS.electricBlue;
+        return {
+          bg: PREMIUM_COLORS.status.safeBg,
+          text: PREMIUM_COLORS.status.safe,
+          dot: PREMIUM_COLORS.status.safe,
+        };
+      case 'amber':
+      case 'yellow':
+      case 'warning':
+      case 'moderate':
+        return {
+          bg: PREMIUM_COLORS.status.moderateBg,
+          text: PREMIUM_COLORS.status.moderate,
+          dot: PREMIUM_COLORS.status.moderate,
+        };
       case 'violet':
       case 'purple':
       case 'ai':
-        return NEO_COLORS.purpleLight;
-      case 'amber':
-      case 'warning':
-      case 'moderate':
-        return NEO_COLORS.amber;
-      case 'white':
-        return NEO_COLORS.white;
+        return {
+          bg: PREMIUM_COLORS.status.aiBg,
+          text: PREMIUM_COLORS.status.ai,
+          dot: PREMIUM_COLORS.status.ai,
+        };
       case 'gray':
       case 'muted':
-        return NEO_COLORS.bgAlt;
-      case 'yellow':
-        return NEO_COLORS.yellow;
+        return {
+          bg: PREMIUM_COLORS.bgAlt,
+          text: PREMIUM_COLORS.secondary,
+          dot: PREMIUM_COLORS.secondary,
+        };
+      case 'lime':
+      case 'primary':
       default:
-        return NEO_COLORS.lime;
+        return {
+          bg: PREMIUM_COLORS.primaryLight,
+          text: PREMIUM_COLORS.primaryDark,
+          dot: PREMIUM_COLORS.primaryDark,
+        };
     }
   };
 
   const isSm = size === 'sm';
+  const meta = getThemeMeta();
 
   return (
     <View
       style={[
         styles.badge,
         {
-          backgroundColor: getColorBg(),
-          paddingVertical: isSm ? 2 : 4,
-          paddingHorizontal: isSm ? 6 : 9,
-          borderRadius: isSm ? NEO_RADIUS.xs : NEO_RADIUS.sm,
+          backgroundColor: meta.bg,
+          paddingVertical: isSm ? 3 : 5,
+          paddingHorizontal: isSm ? 8 : 12,
+          borderRadius: PREMIUM_RADIUS.pill,
         },
         style,
       ]}
     >
+      {showDot ? <View style={[styles.dot, { backgroundColor: meta.dot }]} /> : null}
       {icon ? <View style={styles.iconBox}>{icon}</View> : null}
       {badgeText ? (
         <Text
           style={[
             styles.text,
-            { fontSize: isSm ? 10 : 11 },
+            {
+              color: meta.text,
+              fontSize: isSm ? 11 : 12,
+            },
             textStyle,
           ]}
         >
@@ -89,20 +111,21 @@ export default function NeoBadge({
 
 const styles = StyleSheet.create({
   badge: {
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 4,
+    gap: 5,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   iconBox: {
-    marginRight: 1,
+    marginRight: 2,
   },
   text: {
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });

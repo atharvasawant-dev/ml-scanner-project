@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { verifyClaims } from '../services/api';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../theme/neoTheme';
+import { PREMIUM_COLORS, PREMIUM_SHADOWS, PREMIUM_RADIUS } from '../theme/premiumTheme';
 
 const STANDARD_FSSAI_CLAIMS = [
   'No Added Sugar',
@@ -16,15 +17,39 @@ const STANDARD_FSSAI_CLAIMS = [
 function _claimStatusMeta(status) {
   const s = String(status || '').toUpperCase();
   if (s === 'SUPPORTED') {
-    return { label: 'SUPPORTED', bg: NEO_COLORS.green, fg: NEO_COLORS.ink, icon: '✓', dot: '#2E7D32' };
+    return {
+      label: 'SUPPORTED',
+      bg: PREMIUM_COLORS.status.safeBg,
+      fg: PREMIUM_COLORS.status.safe,
+      border: PREMIUM_COLORS.status.safeBorder,
+      icon: '✓',
+    };
   }
   if (s === 'NOT_SUPPORTED') {
-    return { label: 'NOT SUPPORTED', bg: NEO_COLORS.coral, fg: NEO_COLORS.ink, icon: '✕', dot: '#B83C28' };
+    return {
+      label: 'NOT SUPPORTED',
+      bg: PREMIUM_COLORS.status.avoidBg,
+      fg: PREMIUM_COLORS.status.avoid,
+      border: PREMIUM_COLORS.status.avoidBorder,
+      icon: '✕',
+    };
   }
   if (s === 'NEEDS_REVIEW') {
-    return { label: 'NEEDS REVIEW', bg: NEO_COLORS.yellow, fg: NEO_COLORS.ink, icon: '⚠', dot: '#EF6C00' };
+    return {
+      label: 'NEEDS REVIEW',
+      bg: PREMIUM_COLORS.status.moderateBg,
+      fg: PREMIUM_COLORS.status.moderate,
+      border: PREMIUM_COLORS.status.moderateBorder,
+      icon: '!',
+    };
   }
-  return { label: 'INSUFFICIENT DATA', bg: NEO_COLORS.bgAlt, fg: NEO_COLORS.muted, icon: '?', dot: '#888179' };
+  return {
+    label: 'INSUFFICIENT DATA',
+    bg: PREMIUM_COLORS.bgAlt,
+    fg: PREMIUM_COLORS.secondary,
+    border: PREMIUM_COLORS.border,
+    icon: '?',
+  };
 }
 
 export default function ClaimVerificationCard({
@@ -61,343 +86,284 @@ export default function ClaimVerificationCard({
       setData(res);
       setExpanded(true);
     } catch (e) {
-      const msg = e?.response?.data?.detail || e?.message || 'Unable to verify claims';
+      const msg = e?.response?.data?.detail || e?.message || 'Verification failed';
       setError(String(msg));
     } finally {
       setLoading(false);
     }
   };
 
-  const supportedCount = results.filter((r) => String(r?.status).toUpperCase() === 'SUPPORTED').length;
-
   return (
-    <View style={[styles.card, NEO_SHADOWS.md]}>
-      {/* Neo-Brutalist Accent Banner */}
-      <View style={styles.headerBanner}>
+    <View style={[styles.card, PREMIUM_SHADOWS.sm]}>
+      {/* Header */}
+      <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.diamondMarker} />
-          <Text style={styles.headerTitle}>FSSAI CLAIM VERIFICATION</Text>
-        </View>
-        {hasResults ? (
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{supportedCount}/{results.length} PASS</Text>
+          <View style={styles.badgeWrap}>
+            <Ionicons name="shield-checkmark-outline" size={12} color={PREMIUM_COLORS.primaryDark} />
+            <Text style={styles.badgeText}>FSSAI AUDIT</Text>
           </View>
+          <Text style={styles.title}>Health Claim Verification</Text>
+          <Text style={styles.subtitle}>
+            Statutory compliance check against FSSAI 2018 regulations
+          </Text>
+        </View>
+
+        {hasResults ? (
+          <TouchableOpacity
+            style={styles.expandToggle}
+            onPress={() => setExpanded(!expanded)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.expandToggleText}>{expanded ? 'Collapse ▲' : 'Details ▼'}</Text>
+          </TouchableOpacity>
         ) : null}
       </View>
 
-      <View style={styles.cardContent}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1, paddingRight: 8 }}>
-            <Text style={styles.cardSubtitle}>
-              {hasResults
-                ? `${supportedCount} of ${results.length} standard statutory claims verified against official FSSAI thresholds`
-                : 'Audit front-of-pack claims against official FSSAI 2018 statutory criteria'}
+      {/* Action / Trigger if not yet verified */}
+      {!hasResults && (
+        <View style={styles.unverifiedBox}>
+          <Text style={styles.unverifiedText}>
+            Deterministic verification of front-of-pack claims (e.g. "Sugar Free", "High Protein", "Low Sodium") against declared lab data.
+          </Text>
+          <TouchableOpacity
+            style={[styles.verifyBtn, PREMIUM_SHADOWS.sm]}
+            onPress={handleVerify}
+            disabled={loading}
+            activeOpacity={0.88}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={PREMIUM_COLORS.white} />
+            ) : (
+              <Text style={styles.verifyBtnText}>Verify 7 Core FSSAI Claims →</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {error ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>⚠️ {error}</Text>
+        </View>
+      ) : null}
+
+      {/* Verified Claims List */}
+      {hasResults && (
+        <View style={styles.resultsContainer}>
+          <View style={styles.resultsSummaryRow}>
+            <Text style={styles.summaryLabel}>Verified Claims</Text>
+            <Text style={styles.summaryCount}>
+              {results.filter((r) => String(r.status).toUpperCase() === 'SUPPORTED').length} of {results.length} supported
             </Text>
           </View>
 
-          {!hasResults && !loading ? (
-            <TouchableOpacity
-              style={[styles.actionBtn, NEO_SHADOWS.sm]}
-              activeOpacity={0.85}
-              onPress={handleVerify}
-            >
-              <Text style={styles.actionBtnText}>VERIFY NOW</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          {hasResults ? (
-            <TouchableOpacity
-              style={[styles.toggleBtn, NEO_SHADOWS.sm]}
-              activeOpacity={0.85}
-              onPress={() => setExpanded((v) => !v)}
-            >
-              <Text style={styles.toggleBtnText}>{expanded ? 'COLLAPSE ▴' : 'EXPAND ▾'}</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator color={NEO_COLORS.ink} size="small" />
-            <Text style={styles.loadingText}>Validating FSSAI regulatory criteria...</Text>
-          </View>
-        ) : null}
-
-        {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>⚠️ {error}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={handleVerify}>
-              <Text style={styles.retryText}>RETRY</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {hasResults && expanded ? (
-          <View style={styles.resultsWrap}>
-            {results.map((item, idx) => {
-              const meta = _claimStatusMeta(item?.status);
-              const claimName = item?.claim || item?.normalized_claim || `Claim #${idx + 1}`;
-              const reason = item?.reason || '';
-              const citation = item?.source?.regulation
-                ? `${item.source.regulation} (${item.source.schedule || 'Schedule I'})`
-                : null;
-
-              return (
-                <View key={idx} style={[styles.claimItem, NEO_SHADOWS.sm]}>
-                  <View style={styles.claimTopRow}>
-                    <Text style={styles.claimName}>{claimName}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-                      <Text style={styles.statusText}>
-                        {meta.icon} {meta.label}
-                      </Text>
-                    </View>
+          {results.map((item, idx) => {
+            const meta = _claimStatusMeta(item.status);
+            return (
+              <View key={idx} style={[styles.claimItem, { borderColor: meta.border }]}>
+                <View style={styles.claimTopRow}>
+                  <Text style={styles.claimName}>{item.claim}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
+                    <Text style={[styles.statusIcon, { color: meta.fg }]}>{meta.icon}</Text>
+                    <Text style={[styles.statusLabel, { color: meta.fg }]}>{meta.label}</Text>
                   </View>
-
-                  {reason ? <Text style={styles.claimReason}>{reason}</Text> : null}
-
-                  {citation ? (
-                    <View style={styles.sourceRow}>
-                      <Text style={styles.sourceLabel}>RULE:</Text>
-                      <Text style={styles.claimSource}>{citation}</Text>
-                    </View>
-                  ) : null}
                 </View>
-              );
-            })}
 
-            <View style={styles.disclaimerBox}>
-              <Text style={styles.disclaimerTitle}>STATUTORY DISCLAIMER</Text>
-              <Text style={styles.disclaimer}>
-                {data?.disclaimer ||
-                  'Rule-based assessment against referenced FSSAI regulatory criteria. Not a legal certification.'}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-      </View>
+                {expanded && (
+                  <View style={styles.claimDetails}>
+                    <Text style={styles.reasonText}>{item.reason || 'Verified against nutritional criteria.'}</Text>
+                    {item.regulatory_source ? (
+                      <Text style={styles.sourceText}>Source: {item.regulatory_source}</Text>
+                    ) : null}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+
+          <Text style={styles.disclaimerText}>
+            Statutory disclaimer: Rule-based assessment based on declared product data and FSSAI standards. Not a legal certification.
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 14,
-    backgroundColor: NEO_COLORS.white,
-    borderRadius: NEO_RADIUS.md,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    overflow: 'hidden',
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.xl,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
   },
-  headerBanner: {
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    backgroundColor: NEO_COLORS.cyan,
-    borderBottomWidth: NEO_BORDERS.thick,
-    borderBottomColor: NEO_COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    marginBottom: 12,
   },
   headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  diamondMarker: {
-    width: 8,
-    height: 8,
-    backgroundColor: NEO_COLORS.ink,
-    transform: [{ rotate: '45deg' }],
-  },
-  headerTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.5,
-  },
-  countBadge: {
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  countBadgeText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-  },
-  cardContent: {
-    padding: 14,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardSubtitle: {
-    color: NEO_COLORS.muted,
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
-  },
-  actionBtn: {
-    backgroundColor: NEO_COLORS.yellow,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: NEO_RADIUS.sm,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-  },
-  actionBtnText: {
-    color: NEO_COLORS.ink,
-    fontWeight: '900',
-    fontSize: 12,
-    letterSpacing: 0.4,
-  },
-  toggleBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: NEO_RADIUS.sm,
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-  },
-  toggleBtnText: {
-    color: NEO_COLORS.ink,
-    fontWeight: '900',
-    fontSize: 11,
-    letterSpacing: 0.3,
-  },
-  loadingBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 14,
-    padding: 10,
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderRadius: NEO_RADIUS.sm,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-  },
-  loadingText: {
-    color: NEO_COLORS.ink,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  errorBox: {
-    marginTop: 12,
-    backgroundColor: NEO_COLORS.status.avoidBg,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
-    padding: 10,
-    borderRadius: NEO_RADIUS.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  errorText: {
-    color: NEO_COLORS.ink,
-    fontSize: 12,
-    fontWeight: '800',
     flex: 1,
   },
-  retryBtn: {
-    backgroundColor: NEO_COLORS.white,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
+  badgeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.primaryLight,
     paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: PREMIUM_RADIUS.pill,
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginBottom: 6,
+  },
+  badgeSparkle: {
+    fontSize: 10,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: PREMIUM_COLORS.primaryDark,
+    letterSpacing: 0.5,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  expandToggle: {
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: NEO_RADIUS.xs,
+    borderRadius: PREMIUM_RADIUS.pill,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
   },
-  retryText: {
-    color: NEO_COLORS.ink,
-    fontSize: 11,
-    fontWeight: '900',
+  expandToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.secondary,
   },
-  resultsWrap: {
-    marginTop: 14,
-    gap: 10,
+  unverifiedBox: {
+    backgroundColor: PREMIUM_COLORS.bgAlt,
+    borderRadius: PREMIUM_RADIUS.lg,
+    padding: 14,
+    marginTop: 4,
+  },
+  unverifiedText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  verifyBtn: {
+    backgroundColor: PREMIUM_COLORS.primaryDark,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: PREMIUM_RADIUS.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.white,
+  },
+  errorBox: {
+    backgroundColor: PREMIUM_COLORS.status.avoidBg,
+    borderRadius: PREMIUM_RADIUS.md,
+    padding: 10,
+    marginTop: 10,
+  },
+  errorText: {
+    fontSize: 13,
+    color: PREMIUM_COLORS.status.avoid,
+    fontWeight: '600',
+  },
+  resultsContainer: {
+    marginTop: 6,
+  },
+  resultsSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
+  },
+  summaryCount: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.primaryDark,
   },
   claimItem: {
-    backgroundColor: NEO_COLORS.card,
-    borderRadius: NEO_RADIUS.sm,
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
+    backgroundColor: PREMIUM_COLORS.card,
+    borderRadius: PREMIUM_RADIUS.md,
     padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
   },
   claimTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
   },
   claimName: {
     fontSize: 14,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    flex: 1,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: NEO_RADIUS.xs,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.ink,
-    letterSpacing: 0.4,
-  },
-  claimReason: {
-    fontSize: 12,
-    color: NEO_COLORS.ink,
-    fontWeight: '600',
-    marginTop: 6,
-    lineHeight: 16,
-  },
-  sourceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: NEO_COLORS.bgAlt,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: PREMIUM_RADIUS.pill,
+    gap: 4,
   },
-  sourceLabel: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: NEO_COLORS.muted,
-  },
-  claimSource: {
-    fontSize: 10,
-    color: NEO_COLORS.muted,
-    fontWeight: '700',
-    flex: 1,
-  },
-  disclaimerBox: {
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderWidth: 1.5,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.sm,
-    padding: 10,
-    marginTop: 6,
-  },
-  disclaimerTitle: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: NEO_COLORS.muted,
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  disclaimer: {
+  statusIcon: {
     fontSize: 11,
-    color: NEO_COLORS.muted,
-    fontWeight: '600',
-    lineHeight: 15,
+    fontWeight: '800',
+  },
+  statusLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  claimDetails: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: PREMIUM_COLORS.divider,
+  },
+  reasonText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    lineHeight: 18,
+  },
+  sourceText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: PREMIUM_COLORS.muted,
+    marginTop: 4,
+  },
+  disclaimerText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: PREMIUM_COLORS.secondary,
+    marginTop: 10,
+    lineHeight: 16,
   },
 });

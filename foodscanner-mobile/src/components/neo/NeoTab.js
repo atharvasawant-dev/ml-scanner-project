@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../../theme/neoTheme';
+import { PREMIUM_COLORS, PREMIUM_RADIUS, PREMIUM_SHADOWS } from '../../theme/premiumTheme';
 
 export default function NeoTab({
   tabs = [],
   activeTab,
   onTabChange,
-  activeColor = NEO_COLORS.lime,
+  activeColor = PREMIUM_COLORS.card,
   style,
 }) {
   return (
@@ -19,14 +19,14 @@ export default function NeoTab({
         return (
           <TouchableOpacity
             key={key || idx}
-            activeOpacity={0.85}
+            activeOpacity={0.88}
             onPress={() => onTabChange && onTabChange(key)}
             style={[
               styles.tab,
               isActive && [
                 styles.tabActive,
                 { backgroundColor: activeColor },
-                NEO_SHADOWS.sm,
+                PREMIUM_SHADOWS.sm,
               ],
             ]}
           >
@@ -43,32 +43,28 @@ export default function NeoTab({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: NEO_COLORS.bgAlt,
-    borderWidth: NEO_BORDERS.thick,
-    borderColor: NEO_COLORS.border,
-    borderRadius: NEO_RADIUS.md,
-    padding: 3,
-    marginBottom: 12,
+    backgroundColor: PREMIUM_COLORS.bgAlt,
+    borderRadius: PREMIUM_RADIUS.pill,
+    padding: 4,
+    marginBottom: 14,
   },
   tab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: NEO_RADIUS.sm,
+    borderRadius: PREMIUM_RADIUS.pill,
   },
   tabActive: {
-    borderWidth: NEO_BORDERS.regular,
-    borderColor: NEO_COLORS.border,
+    backgroundColor: PREMIUM_COLORS.card,
   },
   tabText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: NEO_COLORS.muted,
-    textTransform: 'uppercase',
+    fontSize: 13,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.secondary,
   },
   tabTextActive: {
-    color: NEO_COLORS.ink,
-    fontWeight: '900',
+    color: PREMIUM_COLORS.ink,
+    fontWeight: '700',
   },
 });
