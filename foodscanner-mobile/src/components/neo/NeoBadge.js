@@ -4,35 +4,53 @@ import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS } from '../../theme/neoTheme';
 
 export default function NeoBadge({
   label,
+  text,
   children,
-  color = 'yellow', // yellow, coral, cyan, purple, green, pink, white
+  color,
+  variant = 'lime', // lime, blue/cyan, violet/purple, green/safe, amber/yellow, coral/red, white, gray
   icon = null,
   size = 'md',      // sm, md
   style,
   textStyle,
 }) {
+  const badgeText = label !== undefined ? label : text;
+  const badgeColor = color || variant;
+
   const getColorBg = () => {
-    switch (color) {
+    switch (badgeColor) {
+      case 'lime':
+      case 'primary':
+        return NEO_COLORS.lime;
       case 'coral':
       case 'red':
+      case 'avoid':
+      case 'danger':
         return NEO_COLORS.coral;
       case 'green':
       case 'safe':
+      case 'success':
         return NEO_COLORS.green;
+      case 'electricBlue':
+      case 'blue':
       case 'cyan':
-        return NEO_COLORS.cyan;
+        return NEO_COLORS.electricBlue;
+      case 'violet':
       case 'purple':
+      case 'ai':
         return NEO_COLORS.purpleLight;
-      case 'pink':
-        return NEO_COLORS.pink;
+      case 'amber':
+      case 'warning':
+      case 'moderate':
+        return NEO_COLORS.amber;
       case 'white':
         return NEO_COLORS.white;
       case 'gray':
       case 'muted':
         return NEO_COLORS.bgAlt;
       case 'yellow':
-      default:
         return NEO_COLORS.yellow;
+      default:
+        return NEO_COLORS.lime;
     }
   };
 
@@ -52,7 +70,7 @@ export default function NeoBadge({
       ]}
     >
       {icon ? <View style={styles.iconBox}>{icon}</View> : null}
-      {label ? (
+      {badgeText ? (
         <Text
           style={[
             styles.text,
@@ -60,7 +78,7 @@ export default function NeoBadge({
             textStyle,
           ]}
         >
-          {label}
+          {badgeText}
         </Text>
       ) : (
         children

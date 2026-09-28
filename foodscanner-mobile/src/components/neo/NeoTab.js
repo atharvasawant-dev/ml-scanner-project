@@ -6,7 +6,7 @@ export default function NeoTab({
   tabs = [],
   activeTab,
   onTabChange,
-  activeColor = NEO_COLORS.yellow,
+  activeColor = NEO_COLORS.lime,
   style,
 }) {
   return (

@@ -4,7 +4,7 @@ import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS } from '../../theme/neoTheme';
 
 export default function NeoProgressBar({
   progress = 0, // 0 to 1 or 0 to 100
-  color = NEO_COLORS.cyan,
+  color = NEO_COLORS.lime,
   height = 12,
   label,
   valueText,

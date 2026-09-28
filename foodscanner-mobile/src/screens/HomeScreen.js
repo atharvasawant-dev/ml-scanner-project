@@ -104,6 +104,8 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.dateBadgeText}>{todayLabel}</Text>
               </View>
             </View>
+            <Text style={styles.editorialHeading}>KNOW WHAT{"\n"}YOU EAT.</Text>
+            <Text style={styles.editorialSub}>Scan. Understand. Decide.</Text>
             <Text style={styles.greetingText}>{greeting}</Text>
           </View>
 
@@ -125,7 +127,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.scanIconEmoji}>📷</Text>
             </View>
             <View>
-              <Text style={styles.scanBtnTitle}>SCAN FOOD BARCODE</Text>
+              <Text style={styles.scanBtnTitle}>SCAN PRODUCT →</Text>
               <Text style={styles.scanBtnSub}>Instant FSSAI, NutriScore & Hazard Audit</Text>
             </View>
           </View>
@@ -137,21 +139,31 @@ export default function HomeScreen({ navigation }) {
         {/* 3. Secondary Quick Actions */}
         <View style={styles.quickActionsRow}>
           <TouchableOpacity
-            style={[styles.quickCard, { backgroundColor: NEO_COLORS.cyan }, NEO_SHADOWS.sm]}
+            style={[styles.quickCard, NEO_SHADOWS.sm]}
             activeOpacity={0.85}
             onPress={() => navigation.navigate('ManualEntry')}
           >
-            <Text style={styles.quickEmoji}>✏️</Text>
+            <View style={styles.quickTopRow}>
+              <Text style={styles.quickEmoji}>✏️</Text>
+              <View style={[styles.quickTag, { backgroundColor: NEO_COLORS.electricBlue }]}>
+                <Text style={styles.quickTagText}>DATA</Text>
+              </View>
+            </View>
             <Text style={styles.quickTitle}>MANUAL ENTRY</Text>
             <Text style={styles.quickSub}>Type nutrition data</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.quickCard, { backgroundColor: NEO_COLORS.pink }, NEO_SHADOWS.sm]}
+            style={[styles.quickCard, NEO_SHADOWS.sm]}
             activeOpacity={0.85}
             onPress={() => navigation.navigate('OCRScan')}
           >
-            <Text style={styles.quickEmoji}>📸</Text>
+            <View style={styles.quickTopRow}>
+              <Text style={styles.quickEmoji}>📸</Text>
+              <View style={[styles.quickTag, { backgroundColor: NEO_COLORS.violet }]}>
+                <Text style={[styles.quickTagText, { color: NEO_COLORS.white }]}>VISION</Text>
+              </View>
+            </View>
             <Text style={styles.quickTitle}>OCR LABEL</Text>
             <Text style={styles.quickSub}>Photo text extract</Text>
           </TouchableOpacity>
@@ -160,27 +172,27 @@ export default function HomeScreen({ navigation }) {
         {/* 4. Daily Nutrition Stat Pills */}
         <View style={styles.statsGrid}>
           <View style={[styles.statBox, NEO_SHADOWS.sm]}>
-            <View style={styles.statTag}>
-              <Text style={styles.statTagText}>CALORIES</Text>
+            <View style={[styles.statTag, { backgroundColor: NEO_COLORS.lime }]}>
+              <Text style={styles.statTagText}>TODAY'S CALORIES</Text>
             </View>
             <Text style={styles.statNum}>{consumedKcal}</Text>
             <Text style={styles.statTarget}>of {limitKcal} kcal</Text>
           </View>
 
           <View style={[styles.statBox, NEO_SHADOWS.sm]}>
-            <View style={[styles.statTag, { backgroundColor: NEO_COLORS.yellow }]}>
-              <Text style={styles.statTagText}>DAY SCORE</Text>
+            <View style={[styles.statTag, { backgroundColor: NEO_COLORS.bgAlt }]}>
+              <Text style={styles.statTagText}>PRODUCTS SCANNED</Text>
             </View>
-            <Text style={styles.statNum}>{Number(overallScore) || 0}</Text>
-            <Text style={styles.statTarget}>out of 100</Text>
+            <Text style={styles.statNum}>{scansCount}</Text>
+            <Text style={styles.statTarget}>items logged</Text>
           </View>
 
           <View style={[styles.statBox, NEO_SHADOWS.sm]}>
-            <View style={[styles.statTag, { backgroundColor: NEO_COLORS.purpleLight }]}>
-              <Text style={styles.statTagText}>LOGGED</Text>
+            <View style={[styles.statTag, { backgroundColor: scoreBadgeBg }]}>
+              <Text style={styles.statTagText}>HEALTH SCORE</Text>
             </View>
-            <Text style={styles.statNum}>{scansCount}</Text>
-            <Text style={styles.statTarget}>items eaten</Text>
+            <Text style={styles.statNum}>{Number(overallScore) || 0}</Text>
+            <Text style={styles.statTarget}>out of 100</Text>
           </View>
         </View>
 
@@ -196,7 +208,7 @@ export default function HomeScreen({ navigation }) {
                 styles.budgetFill,
                 {
                   width: `${caloriePct * 100}%`,
-                  backgroundColor: caloriePct > 1 ? NEO_COLORS.coral : NEO_COLORS.yellow,
+                  backgroundColor: caloriePct > 1 ? NEO_COLORS.coral : caloriePct > 0.85 ? NEO_COLORS.amber : NEO_COLORS.lime,
                 },
               ]}
             />
@@ -240,7 +252,7 @@ export default function HomeScreen({ navigation }) {
                   <Text style={styles.diaryMeta}>{kcal} kcal</Text>
                 </View>
                 <View style={styles.loggedBadge}>
-                  <Text style={styles.loggedBadgeText}>LOGGED</Text>
+                  <Text style={styles.loggedBadgeText}>SAFE LOG</Text>
                 </View>
               </View>
             );
@@ -255,7 +267,7 @@ export default function HomeScreen({ navigation }) {
           activeOpacity={0.88}
           onPress={() => navigation.navigate('Main', { screen: 'Scan' })}
         >
-          <Text style={styles.floatingScanText}>📷 TAP TO SCAN BARCODE</Text>
+          <Text style={styles.floatingScanText}>📷 SCAN PRODUCT →</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -294,7 +306,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   brandTag: {
-    backgroundColor: NEO_COLORS.yellow,
+    backgroundColor: NEO_COLORS.lime,
     borderWidth: NEO_BORDERS.regular,
     borderColor: NEO_COLORS.border,
     borderRadius: NEO_RADIUS.xs,
@@ -320,11 +332,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: NEO_COLORS.muted,
   },
-  greetingText: {
-    fontSize: 22,
+  editorialHeading: {
+    fontSize: 26,
     fontWeight: '900',
     color: NEO_COLORS.ink,
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
+    lineHeight: 28,
+    marginTop: 6,
+    textTransform: 'uppercase',
+  },
+  editorialSub: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: NEO_COLORS.muted,
+    letterSpacing: 0.3,
+    marginTop: 3,
+    marginBottom: 4,
+  },
+  greetingText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: NEO_COLORS.muted,
+    letterSpacing: 0.2,
   },
   scoreBadgeBox: {
     width: 60,
@@ -347,7 +376,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   primaryScanBtn: {
-    backgroundColor: NEO_COLORS.yellow,
+    backgroundColor: NEO_COLORS.lime,
     borderWidth: NEO_BORDERS.thick,
     borderColor: NEO_COLORS.border,
     borderRadius: NEO_RADIUS.md,
@@ -410,10 +439,30 @@ const styles = StyleSheet.create({
   },
   quickCard: {
     flex: 1,
+    backgroundColor: NEO_COLORS.white,
     borderWidth: NEO_BORDERS.thick,
     borderColor: NEO_COLORS.border,
     borderRadius: NEO_RADIUS.md,
     padding: 12,
+  },
+  quickTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  quickTag: {
+    borderWidth: 1.5,
+    borderColor: NEO_COLORS.border,
+    borderRadius: NEO_RADIUS.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  quickTagText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: NEO_COLORS.ink,
+    letterSpacing: 0.5,
   },
   quickEmoji: {
     fontSize: 20,
@@ -637,7 +686,7 @@ const styles = StyleSheet.create({
     bottom: 16,
   },
   floatingScanBtn: {
-    backgroundColor: NEO_COLORS.yellow,
+    backgroundColor: NEO_COLORS.lime,
     borderWidth: NEO_BORDERS.thick,
     borderColor: NEO_COLORS.border,
     borderRadius: NEO_RADIUS.md,

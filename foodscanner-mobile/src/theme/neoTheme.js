@@ -12,37 +12,52 @@
  */
 
 export const NEO_COLORS = {
-  // Canvas & Structure
-  bg: '#FAF6EE',         // Warm cream / off-white primary canvas
-  bgAlt: '#F2ECE1',      // Deeper cream for nested areas / input backgrounds
+  // Canvas & Structure - Warm Cream + Black
+  bg: '#FAF6EE',         // Warm cream primary canvas (MUST STAY)
+  bgAlt: '#F2ECE1',      // Supporting warm cream for nested areas / input backgrounds
   card: '#FFFFFF',       // Pure white card body
   ink: '#111111',        // Pure dark ink for text and borders
-  border: '#111111',     // Standard solid black border
+  border: '#111111',     // Standard solid black border (2-3px)
   white: '#FFFFFF',
   muted: '#6B665E',      // Neutral dark-gray for secondary text
   mutedLight: '#DDD7CC', // Subtle divider border
 
-  // Neo-Brutalist Vibrant Accents
-  yellow: '#FFD166',     // Primary highlight, warning moderate, hero banner
-  coral: '#FF6B6B',      // Avoid alert, high risk, danger, secondary action
-  cyan: '#4ECDC4',       // Scanner, verification, fresh data, primary CTA
-  purple: '#9D84B7',     // AI Assistant, intelligence, deep analytics
-  purpleLight: '#E8E0F0',
-  pink: '#FF85A1',       // Stickers, badges, special highlights
-  pinkLight: '#FFE3EB',
-  orange: '#FFA94D',     // Calorie warnings, nutrition indicators
-  green: '#51CF66',      // Safe, supported claims, success, logged check
-  greenLight: '#E2F8E7',
-  blue: '#4D96FF',       // Information tags, secondary links
+  // Primary Brand Color
+  lime: '#B7FF00',       // Acid Lime: Primary CTA, active navigation, brand accent
+  primary: '#B7FF00',
+
+  // Secondary Functional Accents
+  electricBlue: '#19A7FF', // Electric Blue: Barcode scanner, technical data
+  blue: '#19A7FF',
+  cyan: '#19A7FF',         // Alias for scanner/data compatibility
+
+  // AI Assistant Accent
+  violet: '#8B5CF6',     // Violet: AI Nutrition Assistant, RAG UI
+  purple: '#8B5CF6',
+  purpleLight: '#EDE9FE', // Soft violet tint
+  ai: '#8B5CF6',
+
+  // Semantic Colors
+  green: '#20C997',      // SAFE / SUCCESS / positive health status
+  greenLight: '#D3F9ED',
+  yellow: '#FFB000',     // MODERATE / WARNING
+  amber: '#FFB000',
+  coral: '#FF4D4D',      // AVOID / DANGER
+  red: '#FF4D4D',
+
+  // Decorative accents (sparingly used)
+  pink: '#F472B6',
+  pinkLight: '#FCE7F3',
+  orange: '#FB923C',
 
   // Status mapping
   status: {
-    safe: '#51CF66',
-    safeBg: '#E2F8E7',
-    moderate: '#FFD166',
-    moderateBg: '#FFF6D6',
-    avoid: '#FF6B6B',
-    avoidBg: '#FFE5E5',
+    safe: '#20C997',
+    safeBg: '#D3F9ED',
+    moderate: '#FFB000',
+    moderateBg: '#FFF3D6',
+    avoid: '#FF4D4D',
+    avoidBg: '#FFEBEB',
     neutral: '#E8E4DA',
   },
 };

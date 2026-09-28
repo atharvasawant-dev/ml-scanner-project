@@ -254,12 +254,14 @@ export default function ScanScreen({ navigation }) {
       {/* Alternative Input Cards */}
       <View style={styles.secondaryActions}>
         <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: NEO_COLORS.cyan }, NEO_SHADOWS.sm]}
+          style={[styles.actionCard, NEO_SHADOWS.sm]}
           activeOpacity={0.85}
           onPress={() => navigation.navigate('ManualEntry', { productName: productName.trim() || '' })}
           disabled={loading}
         >
-          <Text style={styles.actionIcon}>📝</Text>
+          <View style={styles.actionIconBox}>
+            <Text style={styles.actionIcon}>📝</Text>
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.actionTitle}>MANUAL NUTRITION ENTRY</Text>
             <Text style={styles.actionSub}>Directly score calories, sugar, fat, salt & protein</Text>
@@ -268,12 +270,14 @@ export default function ScanScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: NEO_COLORS.pink }, NEO_SHADOWS.sm]}
+          style={[styles.actionCard, NEO_SHADOWS.sm]}
           activeOpacity={0.85}
           onPress={() => navigation.navigate('OCRScan', { productName: productName.trim() || '' })}
           disabled={loading}
         >
-          <Text style={styles.actionIcon}>📸</Text>
+          <View style={styles.actionIconBox}>
+            <Text style={styles.actionIcon}>📸</Text>
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.actionTitle}>SCAN NUTRITION LABEL (OCR)</Text>
             <Text style={styles.actionSub}>Extract label table rows with automated OCR parser</Text>

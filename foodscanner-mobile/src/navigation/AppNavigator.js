@@ -18,18 +18,7 @@ import OCRScanScreen from '../screens/OCRScanScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const C = {
-  cream: '#F5F2EC',
-  ink: '#1A1A17',
-  sage: '#4E8C52',
-  sageLight: '#C3D9C5',
-  amberLight: '#F0D9A8',
-  redLight: '#F0C8C0',
-  border: '#DDD8CE',
-  muted: '#888179',
-  white: '#FFFFFF',
-  red: '#B83C28',
-};
+
 
 
 function TabNavigator() {
@@ -63,7 +52,7 @@ function TabNavigator() {
                 paddingHorizontal: 8,
                 paddingVertical: 2,
                 borderRadius: 6,
-                backgroundColor: focused ? NEO_COLORS.yellow : 'transparent',
+                backgroundColor: focused ? NEO_COLORS.lime : 'transparent',
                 borderWidth: focused ? 1.5 : 0,
                 borderColor: NEO_COLORS.ink,
               }}

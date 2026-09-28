@@ -4,8 +4,9 @@ import { NEO_COLORS, NEO_BORDERS, NEO_RADIUS, NEO_SHADOWS } from '../../theme/ne
 
 export default function NeoButton({
   children,
+  title,
   onPress,
-  variant = 'primary', // primary (yellow), cyan, green, coral, purple, black, white/outline
+  variant = 'primary', // primary (lime), blue/cyan, violet/purple, green/safe, amber/warning, coral/danger, black, white/outline
   size = 'md',         // sm, md, lg
   disabled = false,
   loading = false,
@@ -15,27 +16,42 @@ export default function NeoButton({
   ...rest
 }) {
   const [pressed, setPressed] = useState(false);
+  const buttonContent = children !== undefined ? children : title;
 
   const getVariantStyles = () => {
     switch (variant) {
+      case 'lime':
+      case 'primary':
+        return { bg: NEO_COLORS.lime, text: NEO_COLORS.ink };
+      case 'blue':
+      case 'electricBlue':
       case 'cyan':
-        return { bg: NEO_COLORS.cyan, text: NEO_COLORS.ink };
+        return { bg: NEO_COLORS.electricBlue, text: NEO_COLORS.ink };
+      case 'violet':
+      case 'purple':
+      case 'ai':
+        return { bg: NEO_COLORS.violet, text: NEO_COLORS.white };
       case 'green':
+      case 'safe':
       case 'success':
         return { bg: NEO_COLORS.green, text: NEO_COLORS.ink };
+      case 'amber':
+      case 'warning':
+      case 'moderate':
+      case 'yellow':
+        return { bg: NEO_COLORS.amber, text: NEO_COLORS.ink };
       case 'coral':
       case 'danger':
-        return { bg: NEO_COLORS.coral, text: NEO_COLORS.ink };
-      case 'purple':
-        return { bg: NEO_COLORS.purple, text: NEO_COLORS.white };
+      case 'red':
+      case 'avoid':
+        return { bg: NEO_COLORS.coral, text: NEO_COLORS.white };
       case 'black':
         return { bg: NEO_COLORS.ink, text: NEO_COLORS.white };
       case 'white':
       case 'outline':
         return { bg: NEO_COLORS.white, text: NEO_COLORS.ink };
-      case 'primary':
       default:
-        return { bg: NEO_COLORS.yellow, text: NEO_COLORS.ink };
+        return { bg: NEO_COLORS.lime, text: NEO_COLORS.ink };
     }
   };
 
@@ -95,7 +111,7 @@ export default function NeoButton({
       ) : (
         <View style={styles.contentRow}>
           {icon ? <View style={styles.iconBox}>{icon}</View> : null}
-          {typeof children === 'string' ? (
+          {typeof buttonContent === 'string' ? (
             <Text
               style={[
                 styles.text,
@@ -106,10 +122,10 @@ export default function NeoButton({
                 textStyle,
               ]}
             >
-              {children}
+              {buttonContent}
             </Text>
           ) : (
-            children
+            buttonContent
           )}
         </View>
       )}

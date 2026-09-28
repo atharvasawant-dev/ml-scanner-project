@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     borderBottomColor: NEO_COLORS.border,
   },
   defaultHeader: {
-    backgroundColor: NEO_COLORS.yellow,
+    backgroundColor: NEO_COLORS.bgAlt,
   },
   headerTitleText: {
     fontSize: 14,

@@ -7,19 +7,21 @@ export default function NeoSectionHeader({
   subtitle,
   rightElement,
   tagText,
-  tagColor = 'yellow',
-  markerColor = NEO_COLORS.coral,
+  count,
+  tagColor = 'lime',
+  markerColor = NEO_COLORS.lime,
   style,
 }) {
+  const displayTag = tagText || count;
   return (
     <View style={[styles.container, style]}>
       <View style={styles.topRow}>
         <View style={styles.titleGroup}>
           <View style={[styles.marker, { backgroundColor: markerColor }]} />
           <Text style={styles.title}>{title}</Text>
-          {tagText ? (
-            <View style={[styles.tag, { backgroundColor: NEO_COLORS[tagColor] || NEO_COLORS.yellow }]}>
-              <Text style={styles.tagText}>{tagText}</Text>
+          {displayTag ? (
+            <View style={[styles.tag, { backgroundColor: NEO_COLORS[tagColor] || NEO_COLORS.lime }]}>
+              <Text style={styles.tagText}>{displayTag}</Text>
             </View>
           ) : null}
         </View>
