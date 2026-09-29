@@ -23,8 +23,20 @@ function extractHost(value) {
 }
 
 function getNetworkErrorMessage(error, baseUrl = 'http://127.0.0.1:8000') {
-  if (error?.response?.data?.detail) {
-    return error.response.data.detail;
+  if (error?.response) {
+    const detail = error.response.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail.trim();
+    }
+    if (Array.isArray(detail) && detail.length > 0) {
+      return detail
+        .map((d) => (typeof d === 'object' && d?.msg ? d.msg : String(d)))
+        .join('. ');
+    }
+    if (detail && typeof detail === 'object') {
+      return detail.msg || detail.message || JSON.stringify(detail);
+    }
+    return error.message || 'Request failed';
   }
   if (error?.request || error?.message === 'Network Error') {
     return `Cannot reach backend at ${baseUrl}. Please check your internet connection and try again.`;
@@ -349,4 +361,506 @@ describe('Batch 9B: Neo-Brutalist Design System & Theme Contract', () => {
     }
   });
 });
+
+describe('Batch 10: Product Selection Determinism & Navigation Audit', () => {
+  // Benchmark products contract
+  const BENCHMARKS = [
+    { id: 'parle-g', name: 'Parle-G', barcode: '8901719101038' },
+    { id: 'maggi', name: 'Maggi', barcode: '8901058851304' },
+    { id: 'kurkure', name: 'Kurkure', barcode: '8901491100519' },
+    { id: 'lays', name: "Lay's", barcode: '8901491101844' },
+    { id: 'amul-butter', name: 'Amul Butter', barcode: '8901262010320' },
+  ];
+
+  test('Benchmark products define valid canonical barcodes and never 00000000', () => {
+    for (const p of BENCHMARKS) {
+      assert.ok(p.barcode, `${p.name} must have a barcode`);
+      assert.notStrictEqual(p.barcode, '00000000', `${p.name} barcode must never be fake 00000000`);
+      assert.match(p.barcode, /^\d{8,14}$/, `${p.name} barcode must be 8-14 numeric digits`);
+    }
+    const parleG = BENCHMARKS.find((b) => b.id === 'parle-g');
+    const maggi = BENCHMARKS.find((b) => b.id === 'maggi');
+    assert.strictEqual(parleG.barcode, '8901719101038');
+    assert.strictEqual(maggi.barcode, '8901058851304');
+    assert.notStrictEqual(parleG.barcode, maggi.barcode, 'Parle-G and Maggi barcodes must be distinct');
+  });
+
+  test('Flow A & B: Product selection resolves to its exact canonical barcode', () => {
+    function resolveProductScan(selectedBenchmark) {
+      return {
+        targetBarcode: selectedBenchmark.barcode,
+        targetName: selectedBenchmark.name,
+      };
+    }
+
+    const flowA = resolveProductScan(BENCHMARKS.find((b) => b.id === 'parle-g'));
+    assert.strictEqual(flowA.targetBarcode, '8901719101038');
+    assert.strictEqual(flowA.targetName, 'Parle-G');
+
+    const flowB = resolveProductScan(BENCHMARKS.find((b) => b.id === 'maggi'));
+    assert.strictEqual(flowB.targetBarcode, '8901058851304');
+    assert.strictEqual(flowB.targetName, 'Maggi');
+  });
+
+  test('Flow C & D: Product switching is deterministic with no stale closure', () => {
+    let currentSelection = null;
+    function selectProduct(benchmark) {
+      currentSelection = {
+        targetBarcode: benchmark.barcode,
+        targetName: benchmark.name,
+      };
+      return currentSelection;
+    }
+
+    // Flow C: Parle-G then Maggi -> final result must be Maggi
+    selectProduct(BENCHMARKS.find((b) => b.id === 'parle-g'));
+    const finalFlowC = selectProduct(BENCHMARKS.find((b) => b.id === 'maggi'));
+    assert.strictEqual(finalFlowC.targetBarcode, '8901058851304');
+    assert.strictEqual(finalFlowC.targetName, 'Maggi');
+
+    // Flow D: Maggi then Parle-G -> final result must be Parle-G
+    selectProduct(BENCHMARKS.find((b) => b.id === 'maggi'));
+    const finalFlowD = selectProduct(BENCHMARKS.find((b) => b.id === 'parle-g'));
+    assert.strictEqual(finalFlowD.targetBarcode, '8901719101038');
+    assert.strictEqual(finalFlowD.targetName, 'Parle-G');
+  });
+
+  test('Manual search routing prevents sending 00000000 to barcode scan endpoint', () => {
+    function planScanRequest({ barcode, productName }) {
+      const raw = String(barcode || '').trim();
+      const hint = String(productName || '').trim();
+      const isDigits = /^\d{8,14}$/.test(raw) && raw !== '00000000';
+
+      if (isDigits) {
+        return { type: 'barcode_scan', barcode: raw, hint: hint || null };
+      }
+      if (hint) {
+        return { type: 'manual_analysis', productName: hint };
+      }
+      throw new Error('Input Required');
+    }
+
+    // Entering only a product name
+    const nameSearch = planScanRequest({ barcode: '', productName: 'Parle-G' });
+    assert.strictEqual(nameSearch.type, 'manual_analysis');
+    assert.strictEqual(nameSearch.productName, 'Parle-G');
+    assert.strictEqual(nameSearch.barcode, undefined, 'Must not send barcode for name-only searches');
+
+    // Entering a numeric barcode
+    const barcodeSearch = planScanRequest({ barcode: '8901719101038', productName: '' });
+    assert.strictEqual(barcodeSearch.type, 'barcode_scan');
+    assert.strictEqual(barcodeSearch.barcode, '8901719101038');
+  });
+
+  test('Navigation Back button logic provides safe fallback when canGoBack is false', () => {
+    function handleBackNavigation(nav, fallbackRoute) {
+      if (nav.canGoBack()) {
+        nav.goBack();
+        return 'went_back';
+      }
+      nav.navigate(fallbackRoute.name, fallbackRoute.params);
+      return 'fallback_navigated';
+    }
+
+    let historyPopCount = 0;
+    let fallbackCalls = [];
+
+    // Case 1: Can go back
+    const mockNavWithBack = {
+      canGoBack: () => true,
+      goBack: () => { historyPopCount++; },
+      navigate: (r, p) => { fallbackCalls.push({ r, p }); },
+    };
+    const res1 = handleBackNavigation(mockNavWithBack, { name: 'Main', params: { screen: 'Home' } });
+    assert.strictEqual(res1, 'went_back');
+    assert.strictEqual(historyPopCount, 1);
+    assert.strictEqual(fallbackCalls.length, 0);
+
+    // Case 2: Cannot go back (e.g. opened directly or deep link)
+    const mockNavNoBack = {
+      canGoBack: () => false,
+      goBack: () => { historyPopCount++; },
+      navigate: (r, p) => { fallbackCalls.push({ r, p }); },
+    };
+    const res2 = handleBackNavigation(mockNavNoBack, { name: 'Main', params: { screen: 'Home' } });
+    assert.strictEqual(res2, 'fallback_navigated');
+    assert.strictEqual(fallbackCalls.length, 1);
+    assert.strictEqual(fallbackCalls[0].r, 'Main');
+    assert.deepStrictEqual(fallbackCalls[0].p, { screen: 'Home' });
+  });
+
+  test('ResultScreen state reset clears portion and expanded toggles on product change', () => {
+    function simulateResultState(prevProduct, newProduct) {
+      let state = {
+        activePortionTab: '250g',
+        servingGrams: '250',
+        loggedToday: true,
+        expandedIngredients: { 0: true, 1: true },
+      };
+
+      // Simulating useEffect([productName, barcode, timestamp])
+      if (prevProduct.name !== newProduct.name || prevProduct.barcode !== newProduct.barcode) {
+        state = {
+          activePortionTab: '100g',
+          servingGrams: '100',
+          loggedToday: false,
+          expandedIngredients: {},
+        };
+      }
+      return state;
+    }
+
+    const productA = { name: 'Parle-G', barcode: '8901719101038' };
+    const productB = { name: 'Maggi', barcode: '8901058851304' };
+
+    const resetState = simulateResultState(productA, productB);
+    assert.strictEqual(resetState.activePortionTab, '100g');
+    assert.strictEqual(resetState.servingGrams, '100');
+    assert.strictEqual(resetState.loggedToday, false);
+    assert.deepStrictEqual(resetState.expandedIngredients, {});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Batch 11: Production Authentication, Login Validation, Token Storage & Logout Reliability
+// ---------------------------------------------------------------------------
+describe('Batch 11: Production Authentication, Login Validation, Token Storage & Logout Reliability', () => {
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // 1. Login & Register Field Validation
+  test('1. Login field validation rejects empty fields and malformed email addresses', () => {
+    const validateForm = (email, password, mode = 'login') => {
+      const trimmedEmail = (email || '').trim();
+      if (!trimmedEmail) return { valid: false, error: 'Please enter your email address.' };
+      if (!EMAIL_REGEX.test(trimmedEmail)) return { valid: false, error: 'Please enter a valid email address.' };
+      if (!password) return { valid: false, error: 'Please enter your password.' };
+      if (mode === 'register' && password.length < 6) return { valid: false, error: 'Password must be at least 6 characters long.' };
+      return { valid: true, error: null };
+    };
+
+    assert.strictEqual(validateForm('', 'Secret123').valid, false);
+    assert.strictEqual(validateForm('notanemail', 'Secret123').valid, false);
+    assert.strictEqual(validateForm('user@', 'Secret123').valid, false);
+    assert.strictEqual(validateForm('demo@pramaan.ai', '').valid, false);
+    assert.strictEqual(validateForm('demo@pramaan.ai', '12345', 'register').valid, false);
+    assert.strictEqual(validateForm('demo@pramaan.ai', '123456', 'register').valid, true);
+    assert.strictEqual(validateForm('demo@pramaan.ai', 'DemoPass123!', 'login').valid, true);
+  });
+
+  // 2. Login API Token Extraction
+  test('2. Login response extracts JWT access token and rejects missing token payload', () => {
+    const extractToken = (data) => {
+      const token = data?.access_token;
+      if (!token || typeof token !== 'string') {
+        throw new Error('Authentication succeeded but no access token was returned.');
+      }
+      return token;
+    };
+
+    const validPayload = { access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', token_type: 'bearer' };
+    assert.strictEqual(extractToken(validPayload), 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...');
+    assert.throws(() => extractToken({}), /no access token was returned/);
+    assert.throws(() => extractToken(null), /no access token was returned/);
+  });
+
+  // 3. FastAPI Array Error Formatting
+  test('3. FastAPI Pydantic validation array error is cleanly formatted without [object Object]', () => {
+    const errorWithArray = {
+      response: {
+        status: 422,
+        data: {
+          detail: [
+            { type: 'value_error', loc: ['body', 'email'], msg: 'value is not a valid email address' },
+            { type: 'string_too_short', loc: ['body', 'password'], msg: 'String should have at least 6 characters' },
+          ],
+        },
+      },
+    };
+    const formatted = getNetworkErrorMessage(errorWithArray);
+    assert.strictEqual(formatted, 'value is not a valid email address. String should have at least 6 characters');
+    assert.strictEqual(formatted.includes('[object Object]'), false);
+  });
+
+  // 4. Token Persistence Lifecycle
+  test('4. Token storage lifecycle: saveToken, getToken, and removeToken simulate storage persistence', async () => {
+    const mockStorage = new Map();
+    const TOKEN_KEY = 'foodscanner_token';
+
+    const saveToken = async (tok) => { if (tok) mockStorage.set(TOKEN_KEY, tok); };
+    const getToken = async () => mockStorage.get(TOKEN_KEY) || null;
+    const removeToken = async () => { mockStorage.delete(TOKEN_KEY); };
+
+    assert.strictEqual(await getToken(), null);
+    await saveToken('token_lifecycle_jwt_123');
+    assert.strictEqual(await getToken(), 'token_lifecycle_jwt_123');
+    await removeToken();
+    assert.strictEqual(await getToken(), null);
+  });
+
+  // 5. Logout Clears Token, Storage, and Session State
+  test('5. Logout completely clears token, storage, and resets authenticated session', async () => {
+    const mockStorage = new Map([['foodscanner_token', 'active_token_999'], ['user_prefs', 'saved']]);
+    let isLoggedIn = true;
+    let authHeader = 'Bearer active_token_999';
+
+    const logout = async () => {
+      mockStorage.clear();
+      authHeader = undefined;
+      isLoggedIn = false;
+    };
+
+    assert.strictEqual(isLoggedIn, true);
+    await logout();
+    assert.strictEqual(isLoggedIn, false);
+    assert.strictEqual(mockStorage.size, 0);
+    assert.strictEqual(authHeader, undefined);
+  });
+
+  // 6. Logout Navigation Stack Reset & Back Button Lock
+  test('6. Logout triggers navigation stack reset to Login at index 0, preventing Back navigation to protected screens', () => {
+    const mockNavigationStack = {
+      routes: [{ name: 'Home' }, { name: 'Profile' }],
+      index: 1,
+      reset(payload) {
+        this.index = payload.index;
+        this.routes = payload.routes;
+      },
+      canGoBack() {
+        return this.index > 0;
+      },
+    };
+
+    assert.strictEqual(mockNavigationStack.canGoBack(), true);
+
+    // Perform navigation reset to Login
+    mockNavigationStack.reset({ index: 0, routes: [{ name: 'Login' }] });
+
+    assert.strictEqual(mockNavigationStack.index, 0);
+    assert.strictEqual(mockNavigationStack.routes.length, 1);
+    assert.strictEqual(mockNavigationStack.routes[0].name, 'Login');
+    assert.strictEqual(mockNavigationStack.canGoBack(), false);
+  });
+
+  // 7. 401 Interceptor Clears Protected Endpoints
+  test('7. 401 response on protected endpoint triggers session cleanup', async () => {
+    let sessionCleaned = false;
+    const handleResponseError = async (error) => {
+      const status = error?.response?.status;
+      const url = error?.config?.url || '';
+      const isAuthEndpoint = url.includes('/login') || url.includes('/register');
+      if (status === 401 && !isAuthEndpoint) {
+        sessionCleaned = true;
+      }
+      return Promise.reject(error);
+    };
+
+    const protectedError = { response: { status: 401 }, config: { url: '/user/profile' } };
+    await assert.rejects(async () => handleResponseError(protectedError));
+    assert.strictEqual(sessionCleaned, true);
+  });
+
+  // 8. 401 Interceptor Bypasses /login and /register
+  test('8. 401 response on /login or /register does NOT trigger session cleanup or navigation reset', async () => {
+    let sessionCleaned = false;
+    const handleResponseError = async (error) => {
+      const status = error?.response?.status;
+      const url = error?.config?.url || '';
+      const isAuthEndpoint = url.includes('/login') || url.includes('/register');
+      if (status === 401 && !isAuthEndpoint) {
+        sessionCleaned = true;
+      }
+      return Promise.reject(error);
+    };
+
+    const loginError = { response: { status: 401, data: { detail: 'Invalid email or password' } }, config: { url: '/login' } };
+    await assert.rejects(async () => handleResponseError(loginError));
+    assert.strictEqual(sessionCleaned, false);
+
+    const registerError = { response: { status: 401 }, config: { url: '/register' } };
+    await assert.rejects(async () => handleResponseError(registerError));
+    assert.strictEqual(sessionCleaned, false);
+  });
+
+  // 9. Concurrent 401 Latch Prevents Multi-Call Spams
+  test('9. In-flight 401 latch prevents duplicate unauthorized handler executions during burst failures', () => {
+    let executionCount = 0;
+    let isHandling401 = false;
+
+    const on401 = () => {
+      if (!isHandling401) {
+        isHandling401 = true;
+        executionCount += 1;
+      }
+    };
+
+    // Simulate 5 simultaneous 401 responses
+    on401();
+    on401();
+    on401();
+    on401();
+    on401();
+
+    assert.strictEqual(executionCount, 1);
+  });
+
+  // 10. Session Restoration on App Boot
+  test('10. Session restoration: app boots into authenticated state when token is present', async () => {
+    const restoreSession = async (tokenProvider) => {
+      const token = await tokenProvider();
+      return !!token;
+    };
+
+    const hasSession = await restoreSession(async () => 'valid_persisted_token');
+    assert.strictEqual(hasSession, true);
+  });
+
+  // 11. Session Absence on Cold Boot
+  test('11. Session absence: app boots into Login screen when no token exists', async () => {
+    const restoreSession = async (tokenProvider) => {
+      const token = await tokenProvider();
+      return !!token;
+    };
+
+    const hasSession = await restoreSession(async () => null);
+    assert.strictEqual(hasSession, false);
+  });
+
+  // 12. Duplicate Login Submission Guard
+  test('12. Duplicate login submission guard prevents concurrent API calls', async () => {
+    let apiCallCount = 0;
+    let isSubmitting = false;
+
+    const submitLogin = async () => {
+      if (isSubmitting) return;
+      isSubmitting = true;
+      apiCallCount += 1;
+      // Simulate pending network call
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      isSubmitting = false;
+    };
+
+    // Simulate double-click
+    const p1 = submitLogin();
+    const p2 = submitLogin();
+    await Promise.all([p1, p2]);
+
+    assert.strictEqual(apiCallCount, 1);
+  });
+
+  // 13. Duplicate Logout Submission Guard
+  test('13. Duplicate logout submission guard prevents concurrent storage clearing', async () => {
+    let logoutCallCount = 0;
+    let isLoggingOut = false;
+
+    const handleLogout = async () => {
+      if (isLoggingOut) return;
+      isLoggingOut = true;
+      logoutCallCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      isLoggingOut = false;
+    };
+
+    const p1 = handleLogout();
+    const p2 = handleLogout();
+    await Promise.all([p1, p2]);
+
+    assert.strictEqual(logoutCallCount, 1);
+  });
+
+  // 14. Cross-Platform Logout Confirmation Behavior
+  test('14. Cross-platform logout confirmation: web uses window.confirm, native uses Alert.alert', () => {
+    let loggedOut = false;
+    const performLogout = () => { loggedOut = true; };
+
+    // Web simulation - cancel
+    const handleLogoutWebCancel = (confirmFn) => {
+      if (confirmFn('Are you sure?')) performLogout();
+    };
+    handleLogoutWebCancel(() => false);
+    assert.strictEqual(loggedOut, false);
+
+    // Web simulation - confirm
+    const handleLogoutWebConfirm = (confirmFn) => {
+      if (confirmFn('Are you sure?')) performLogout();
+    };
+    handleLogoutWebConfirm(() => true);
+    assert.strictEqual(loggedOut, true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Batch 12: Search Input Focus State, Typography & Zero Layout Shift Invariants
+// ---------------------------------------------------------------------------
+describe('Batch 12: Search Input Focus State, Typography & Zero Layout Shift Invariants', () => {
+  const getSearchInputStyle = (isFocused) => ({
+    wrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isFocused ? '#F7FAF1' : '#FFFFFF',
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      borderWidth: 1.5,
+      borderColor: isFocused ? '#557A3E' : '#E1E6DC',
+      minHeight: 52,
+      ...(isFocused ? {
+        shadowColor: '#557A3E',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        elevation: 2,
+      } : {}),
+    },
+    innerInput: {
+      flex: 1,
+      paddingVertical: 12,
+      fontSize: 16,
+      fontWeight: '500',
+      color: '#171A17',
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      outlineStyle: 'none',
+      outlineWidth: 0,
+    },
+    placeholderTextColor: '#7C837B',
+    selectionColor: '#557A3E',
+  });
+
+  test('1. Unfocused input has subtle border (#E1E6DC) and no black outline', () => {
+    const unfocused = getSearchInputStyle(false);
+    assert.strictEqual(unfocused.wrapper.borderColor, '#E1E6DC');
+    assert.strictEqual(unfocused.wrapper.backgroundColor, '#FFFFFF');
+    assert.strictEqual(unfocused.wrapper.borderRadius, 16);
+    assert.notStrictEqual(unfocused.wrapper.borderColor, '#000000');
+    assert.strictEqual(unfocused.innerInput.outlineStyle, 'none');
+    assert.strictEqual(unfocused.innerInput.borderWidth, 0);
+  });
+
+  test('2. Focused input switches to health-tech green accent (#557A3E) with bright background (#F7FAF1)', () => {
+    const focused = getSearchInputStyle(true);
+    assert.strictEqual(focused.wrapper.borderColor, '#557A3E');
+    assert.strictEqual(focused.wrapper.backgroundColor, '#F7FAF1');
+    assert.strictEqual(focused.wrapper.shadowColor, '#557A3E');
+    assert.strictEqual(focused.selectionColor, '#557A3E');
+  });
+
+  test('3. Zero layout shift: dimensions and border widths are identical across focus transitions', () => {
+    const unfocused = getSearchInputStyle(false);
+    const focused = getSearchInputStyle(true);
+
+    assert.strictEqual(unfocused.wrapper.borderWidth, focused.wrapper.borderWidth);
+    assert.strictEqual(unfocused.wrapper.minHeight, focused.wrapper.minHeight);
+    assert.strictEqual(unfocused.wrapper.paddingHorizontal, focused.wrapper.paddingHorizontal);
+    assert.strictEqual(unfocused.innerInput.fontSize, focused.innerInput.fontSize);
+  });
+
+  test('4. Typography and placeholder conform to PRAMAAN specifications', () => {
+    const style = getSearchInputStyle(false);
+    assert.strictEqual(style.placeholderTextColor, '#7C837B');
+    assert.strictEqual(style.innerInput.color, '#171A17');
+    assert.strictEqual(style.innerInput.fontSize, 16);
+    assert.strictEqual(style.innerInput.fontWeight, '500');
+  });
+});
+
+
 

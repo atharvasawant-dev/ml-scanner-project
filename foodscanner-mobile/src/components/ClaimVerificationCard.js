@@ -67,7 +67,7 @@ export default function ClaimVerificationCard({
   useEffect(() => {
     setData(initialVerification);
     setError(null);
-  }, [initialVerification, barcode]);
+  }, [initialVerification, barcode, productName]);
 
   const results = Array.isArray(data?.results) ? data.results : [];
   const hasResults = results.length > 0;

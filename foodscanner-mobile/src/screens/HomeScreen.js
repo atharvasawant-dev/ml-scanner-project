@@ -12,7 +12,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 
-import { getDailyReport, getTodayFoods, getUserProfile, getHistory, scanProduct } from '../services/api';
+import { getDailyReport, getTodayFoods, getUserProfile, getHistory, scanProduct, analyzeManualProduct } from '../services/api';
 import {
   PREMIUM_COLORS,
   PREMIUM_SHADOWS,
@@ -246,9 +246,21 @@ export default function HomeScreen({ navigation }) {
   const handleRescan = async (barcode, productName) => {
     if (!barcode && !productName) return;
     try {
-      const code = barcode && String(barcode) !== '00000000' ? String(barcode) : '00000000';
-      const result = await scanProduct(code, productName || null);
-      navigation.navigate('Result', { result, timestamp: Date.now() });
+      let result;
+      const validBarcode = barcode && String(barcode) !== '00000000' && /^\d{8,14}$/.test(String(barcode).trim());
+      if (validBarcode) {
+        result = await scanProduct(String(barcode).trim(), productName || null);
+      } else if (productName) {
+        result = await analyzeManualProduct({ product_name: productName });
+      } else {
+        navigation.navigate('Main', { screen: 'Scan' });
+        return;
+      }
+      if (result) {
+        navigation.navigate('Result', { result, timestamp: Date.now() });
+      } else {
+        navigation.navigate('Main', { screen: 'Scan' });
+      }
     } catch (_e) {
       navigation.navigate('Main', { screen: 'Scan' });
     }

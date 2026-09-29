@@ -24,6 +24,14 @@ export default function AIChatSection({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Reset conversation when viewing a new product
+  React.useEffect(() => {
+    setMessages([]);
+    setQuery('');
+    setExpanded(false);
+    setError(null);
+  }, [barcode, productName]);
+
   const handleSend = async (textToSend) => {
     const message = String(textToSend || query || '').trim();
     if (!message || loading) return;

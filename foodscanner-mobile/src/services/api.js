@@ -77,7 +77,19 @@ export function getApiBaseUrl() {
 
 export function getNetworkErrorMessage(error) {
   if (error?.response) {
-    return error.response.data?.detail || error.message || 'Request failed';
+    const detail = error.response.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail.trim();
+    }
+    if (Array.isArray(detail) && detail.length > 0) {
+      return detail
+        .map((d) => (typeof d === 'object' && d?.msg ? d.msg : String(d)))
+        .join('. ');
+    }
+    if (detail && typeof detail === 'object') {
+      return detail.msg || detail.message || JSON.stringify(detail);
+    }
+    return error.message || 'Request failed';
   }
 
   if (error?.request || error?.message === 'Network Error') {
@@ -85,6 +97,12 @@ export function getNetworkErrorMessage(error) {
   }
 
   return error?.message || 'Request failed';
+}
+
+export function clearAuthSession() {
+  if (client.defaults.headers && client.defaults.headers.common) {
+    delete client.defaults.headers.common['Authorization'];
+  }
 }
 
 const client = axios.create({
@@ -97,31 +115,50 @@ client.interceptors.request.use(async (config) => {
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
+  } else if (config.headers && config.headers.Authorization) {
+    delete config.headers.Authorization;
   }
   return config;
 });
 
+let _isHandling401 = false;
+
 client.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error?.response?.status === 401) {
-      try {
-        await removeToken();
-      } catch (_e) {
-        // ignore
-      }
-      if (typeof _unauthorizedHandler === 'function') {
+    const status = error?.response?.status;
+    const requestUrl = error?.config?.url || '';
+
+    // Bypass 401 interceptor for authentication attempt endpoints (/login, /register)
+    const isAuthEndpoint = requestUrl.includes('/login') || requestUrl.includes('/register');
+
+    if (status === 401 && !isAuthEndpoint) {
+      if (!_isHandling401) {
+        _isHandling401 = true;
         try {
-          _unauthorizedHandler();
+          await removeToken();
+          clearAuthSession();
         } catch (_e) {
           // ignore
         }
-      } else {
-        try {
-          resetToLogin();
-        } catch (_e) {
-          // ignore
+
+        if (typeof _unauthorizedHandler === 'function') {
+          try {
+            _unauthorizedHandler();
+          } catch (_e) {
+            // ignore
+          }
+        } else {
+          try {
+            resetToLogin();
+          } catch (_e) {
+            // ignore
+          }
         }
+
+        setTimeout(() => {
+          _isHandling401 = false;
+        }, 1000);
       }
     }
     return Promise.reject(error);

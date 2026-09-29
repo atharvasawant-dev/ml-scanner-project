@@ -17,6 +17,7 @@ pytesseract
 pillow
 easyocr
 email-validator
+alembic
 
 # This file is generated from pyproject.toml
 #

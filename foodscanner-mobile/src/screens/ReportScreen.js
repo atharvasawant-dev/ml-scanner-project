@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { getDailyReport, getWeeklyReport, getGoalReport } from '../services/api';
 import { resetToLogin } from '../utils/navigationRef';
@@ -56,27 +57,30 @@ export default function ReportScreen() {
   const [weekly, setWeekly] = useState(null);
   const [goal, setGoal] = useState(null);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const [d, w, g] = await Promise.all([
-          getDailyReport(),
-          getWeeklyReport(),
-          getGoalReport().catch(() => null),
-        ]);
-        setDaily(d);
-        setWeekly(w);
-        setGoal(g);
-      } catch (e) {
-        if (e?.response?.status === 401) {
-          resetToLogin();
-        }
-      } finally {
-        setLoading(false);
+  const loadReports = useCallback(async () => {
+    try {
+      const [d, w, g] = await Promise.all([
+        getDailyReport(),
+        getWeeklyReport(),
+        getGoalReport().catch(() => null),
+      ]);
+      setDaily(d);
+      setWeekly(w);
+      setGoal(g);
+    } catch (e) {
+      if (e?.response?.status === 401) {
+        resetToLogin();
       }
-    })();
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadReports();
+    }, [loadReports])
+  );
 
   if (loading) {
     return (

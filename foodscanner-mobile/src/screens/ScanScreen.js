@@ -13,15 +13,58 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
-import { scanProduct } from '../services/api';
+import { scanProduct, analyzeManualProduct } from '../services/api';
 import {
   PREMIUM_COLORS,
   PREMIUM_SHADOWS,
   PREMIUM_RADIUS,
 } from '../theme/premiumTheme';
 
-const QUICK = ['Maggi', 'Parle-G', 'Kurkure', "Lay's", 'Amul Butter'];
+export const BENCHMARK_PRODUCTS = [
+  {
+    id: 'parle-g',
+    name: 'Parle-G',
+    barcode: '8901719101038',
+    brand: 'Parle',
+    category: 'Biscuits & Cookies',
+    icon: 'nutrition-outline',
+  },
+  {
+    id: 'maggi',
+    name: 'Maggi',
+    barcode: '8901058851304',
+    brand: 'Nestlé',
+    category: 'Instant Noodles',
+    icon: 'restaurant-outline',
+  },
+  {
+    id: 'kurkure',
+    name: 'Kurkure',
+    barcode: '8901491100519',
+    brand: 'PepsiCo',
+    category: 'Chips & Snacks',
+    icon: 'flame-outline',
+  },
+  {
+    id: 'lays',
+    name: "Lay's",
+    barcode: '8901491101844',
+    brand: 'PepsiCo',
+    category: 'Potato Chips',
+    icon: 'fast-food-outline',
+  },
+  {
+    id: 'amul-butter',
+    name: 'Amul Butter',
+    barcode: '8901262010320',
+    brand: 'Amul',
+    category: 'Dairy',
+    icon: 'cube-outline',
+  },
+];
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SCAN_BOX_SIZE = Math.min(260, SCREEN_WIDTH * 0.72);
 
@@ -33,6 +76,8 @@ export default function ScanScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [isBarcodeFocused, setIsBarcodeFocused] = useState(false);
+  const [isNameFocused, setIsNameFocused] = useState(false);
   const productNameRef = useRef(null);
 
   // Animated vertical scan line
@@ -63,9 +108,17 @@ export default function ScanScreen({ navigation }) {
     requestPermission();
   }, [permission, showCamera, requestPermission]);
 
-  const analyze = async (code) => {
-    const raw = String(code ?? barcode).trim();
-    const hint = String(productName || '').trim();
+  useFocusEffect(
+    React.useCallback(() => {
+      setScanned(false);
+      setLoading(false);
+      setNotFound(false);
+    }, [])
+  );
+
+  const runScan = async ({ targetBarcode, targetName } = {}) => {
+    const raw = targetBarcode !== undefined ? String(targetBarcode || '').trim() : String(barcode || '').trim();
+    const hint = targetName !== undefined ? String(targetName || '').trim() : String(productName || '').trim();
 
     const hasLetters = /[A-Za-z]/.test(raw);
     if (hasLetters) {
@@ -77,24 +130,32 @@ export default function ScanScreen({ navigation }) {
     }
 
     if (!raw && !hint) {
+      Alert.alert('Input Required', 'Please enter a numeric barcode or product name to analyze.');
       return;
     }
 
-    const isDigits = /^\d+$/.test(raw);
+    const isDigits = /^\d{8,14}$/.test(raw);
     if (raw && !isDigits) {
-      Alert.alert('Invalid barcode', 'Enter numeric barcode digits or tap a benchmark product below');
+      Alert.alert('Invalid barcode', 'Enter numeric barcode digits (8-14 digits) or select a popular food below.');
       return;
     }
-
-    const scanPayload = raw
-      ? { barcode: raw, product_name: hint || null }
-      : { barcode: '00000000', product_name: hint };
 
     setLoading(true);
+    setNotFound(false);
     try {
-      setNotFound(false);
-      const result = await scanProduct(scanPayload.barcode, scanPayload.product_name);
-      navigation.replace('Result', { result, timestamp: Date.now() });
+      let result;
+      if (raw) {
+        result = await scanProduct(raw, hint || null);
+      } else {
+        result = await analyzeManualProduct({ product_name: hint });
+      }
+
+      if (!result) {
+        throw new Error('No product data returned');
+      }
+
+      // Navigate to Result screen with fresh timestamp (preserving navigation stack for Back button)
+      navigation.navigate('Result', { result, timestamp: Date.now() });
     } catch (e) {
       const status = e?.response?.status;
       if (status === 404) {
@@ -113,11 +174,12 @@ export default function ScanScreen({ navigation }) {
   };
 
   const onBarcodeScanned = ({ data }) => {
-    if (scanned) return;
+    if (scanned || loading) return;
     setScanned(true);
-    setBarcode(String(data));
+    const scannedCode = String(data || '').trim();
+    setBarcode(scannedCode);
     setShowCamera(false);
-    analyze(String(data));
+    runScan({ targetBarcode: scannedCode, targetName: null });
     setTimeout(() => setScanned(false), 1500);
   };
 
@@ -137,6 +199,24 @@ export default function ScanScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Navigation Bar with Back Button */}
+        <View style={styles.navBar}>
+          <TouchableOpacity
+            style={[styles.backBtn, PREMIUM_SHADOWS.sm]}
+            onPress={() => {
+              if (navigation?.canGoBack && navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('Main', { screen: 'Home' });
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="arrow-back" size={16} color={PREMIUM_COLORS.ink} style={{ marginRight: 4 }} />
+            <Text style={styles.backBtnText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.categoryBadge}>
@@ -225,19 +305,23 @@ export default function ScanScreen({ navigation }) {
         {/* Input Details Bottom Sheet Card */}
         <View style={[styles.inputCard, PREMIUM_SHADOWS.sm]}>
           <Text style={styles.inputSectionTitle}>Manual Barcode Digits</Text>
-          <View style={styles.inputWrapper}>
+          <View style={[styles.inputWrapper, isBarcodeFocused && styles.inputWrapperFocused]}>
             <TextInput
               style={styles.textInput}
               placeholder="e.g. 8901058000256"
-              placeholderTextColor={PREMIUM_COLORS.muted}
+              placeholderTextColor="#7C837B"
               value={barcode}
               onChangeText={setBarcode}
               keyboardType="numeric"
+              selectionColor="#557A3E"
+              underlineColorAndroid="transparent"
+              onFocus={() => setIsBarcodeFocused(true)}
+              onBlur={() => setIsBarcodeFocused(false)}
             />
             {barcode ? (
               <TouchableOpacity
                 style={styles.searchInsideBtn}
-                onPress={() => analyze(barcode)}
+                onPress={() => runScan({ targetBarcode: barcode })}
                 disabled={loading}
               >
                 {loading ? (
@@ -268,22 +352,26 @@ export default function ScanScreen({ navigation }) {
           ) : null}
 
           <Text style={[styles.inputSectionTitle, { marginTop: 18 }]}>Or Search By Product Name</Text>
-          <View style={styles.inputWrapper}>
+          <View style={[styles.inputWrapper, isNameFocused && styles.inputWrapperFocused]}>
             <TextInput
               ref={productNameRef}
               style={styles.textInput}
               placeholder="e.g. Dairy Milk, Maggi Noodles, Oat Milk"
-              placeholderTextColor={PREMIUM_COLORS.muted}
+              placeholderTextColor="#7C837B"
               value={productName}
               onChangeText={(t) => {
                 setProductName(t);
                 if (notFound) setNotFound(false);
               }}
+              selectionColor="#557A3E"
+              underlineColorAndroid="transparent"
+              onFocus={() => setIsNameFocused(true)}
+              onBlur={() => setIsNameFocused(false)}
             />
             {productName ? (
               <TouchableOpacity
                 style={styles.searchInsideBtn}
-                onPress={() => analyze(null)}
+                onPress={() => runScan({ targetBarcode: null, targetName: productName })}
                 disabled={loading}
               >
                 {loading ? (
@@ -296,22 +384,37 @@ export default function ScanScreen({ navigation }) {
           </View>
 
           {/* Quick Benchmark Chips */}
-          <Text style={[styles.inputSectionTitle, { marginTop: 20 }]}>Popular Packaged Foods</Text>
+          <View style={styles.benchmarkHeaderRow}>
+            <Text style={styles.inputSectionTitle}>Popular Packaged Foods</Text>
+            <Text style={styles.benchmarkSub}>Tap to test & analyze</Text>
+          </View>
           <View style={styles.chipsRow}>
-            {QUICK.map((item) => (
-              <TouchableOpacity
-                key={item}
-                activeOpacity={0.8}
-                style={styles.chip}
-                onPress={() => {
-                  setProductName(item);
-                  setBarcode('');
-                  analyze(null);
-                }}
-              >
-                <Text style={styles.chipText}>{item}</Text>
-              </TouchableOpacity>
-            ))}
+            {BENCHMARK_PRODUCTS.map((item) => {
+              const isSelected = barcode === item.barcode || productName.toLowerCase() === item.name.toLowerCase();
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.8}
+                  style={[styles.chip, isSelected && styles.chipSelected]}
+                  onPress={() => {
+                    setBarcode(item.barcode);
+                    setProductName(item.name);
+                    runScan({ targetBarcode: item.barcode, targetName: item.name });
+                  }}
+                  disabled={loading}
+                >
+                  <Ionicons
+                    name={item.icon || 'fast-food-outline'}
+                    size={14}
+                    color={isSelected ? PREMIUM_COLORS.primaryDark : PREMIUM_COLORS.secondary}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
       </ScrollView>
@@ -340,6 +443,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: PREMIUM_COLORS.secondary,
     fontWeight: '500',
+  },
+
+  // Navigation Bar
+  navBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.card,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: PREMIUM_RADIUS.pill,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.border,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PREMIUM_COLORS.ink,
   },
 
   // Header
@@ -518,18 +643,32 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PREMIUM_COLORS.bgAlt,
-    borderRadius: PREMIUM_RADIUS.md,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: '#E1E6DC',
+    minHeight: 52,
+  },
+  inputWrapperFocused: {
+    borderColor: '#557A3E',
+    backgroundColor: '#F7FAF1',
+    shadowColor: '#557A3E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
   },
   textInput: {
     flex: 1,
     paddingVertical: 12,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '500',
-    color: PREMIUM_COLORS.ink,
+    color: '#171A17',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    outlineStyle: 'none',
+    outlineWidth: 0,
   },
   searchInsideBtn: {
     backgroundColor: PREMIUM_COLORS.primary,
@@ -583,23 +722,45 @@ const styles = StyleSheet.create({
     color: PREMIUM_COLORS.ink,
   },
 
-  // Chips
+  // Chips & Benchmarks
+  benchmarkHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  benchmarkSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.secondary,
+  },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: PREMIUM_COLORS.bgAlt,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: PREMIUM_RADIUS.pill,
     borderWidth: 1,
     borderColor: PREMIUM_COLORS.border,
   },
+  chipSelected: {
+    backgroundColor: PREMIUM_COLORS.primaryLight,
+    borderColor: PREMIUM_COLORS.primary,
+  },
   chipText: {
     fontSize: 12,
     fontWeight: '600',
     color: PREMIUM_COLORS.ink,
+  },
+  chipTextSelected: {
+    color: PREMIUM_COLORS.primaryDark,
+    fontWeight: '700',
   },
 });

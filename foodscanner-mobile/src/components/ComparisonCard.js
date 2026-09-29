@@ -26,6 +26,14 @@ export default function ComparisonCard({ currentProduct = null }) {
       ? currentProduct.barcode
       : currentProduct?.name || currentProduct?.product_name || '';
 
+  // Reset comparison state when current product changes
+  React.useEffect(() => {
+    setComparison(null);
+    setTargetQuery('');
+    setExpanded(false);
+    setError(null);
+  }, [currentIdentifier]);
+
   const handleCompare = async (target) => {
     const query = String(target || targetQuery || '').trim();
     if (!query || !currentIdentifier || loading) return;

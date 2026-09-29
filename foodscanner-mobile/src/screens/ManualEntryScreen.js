@@ -94,7 +94,7 @@ export default function ManualEntryScreen({ navigation, route }) {
         reasons: analyzed?.reasons,
       };
 
-      navigation.replace('Result', { result, timestamp: Date.now() });
+      navigation.navigate('Result', { result, timestamp: Date.now() });
     } catch (e) {
       const msg = e?.response?.data?.detail || e?.message || 'Analysis failed';
       Alert.alert('Analysis Error', String(msg));
@@ -114,7 +114,13 @@ export default function ManualEntryScreen({ navigation, route }) {
         <View style={styles.navBar}>
           <TouchableOpacity
             style={[styles.backBtn, PREMIUM_SHADOWS.sm]}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              if (navigation?.canGoBack && navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('Main', { screen: 'Scan' });
+              }
+            }}
             activeOpacity={0.8}
           >
             <Ionicons name="arrow-back" size={16} color={PREMIUM_COLORS.ink} style={{ marginRight: 4 }} />

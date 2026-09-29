@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.orm import Base
@@ -50,6 +50,9 @@ class Product(Base):
 
 class Nutrition(Base):
     __tablename__ = "nutrition"
+    __table_args__ = (
+        Index("ix_nutrition_product_id", "product_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     product_id: Mapped[int] = mapped_column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
@@ -67,6 +70,9 @@ class Nutrition(Base):
 
 class ScanHistory(Base):
     __tablename__ = "scan_history"
+    __table_args__ = (
+        Index("ix_scan_history_user_time", "user_id", "scan_time"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, default=1)
@@ -79,6 +85,9 @@ class ScanHistory(Base):
 
 class FoodLog(Base):
     __tablename__ = "daily_food_log"
+    __table_args__ = (
+        Index("ix_daily_food_log_user_consumed", "user_id", "consumed_at"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, default=1)

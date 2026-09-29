@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { getUserProfile, updateUserProfile } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -28,28 +29,33 @@ const GOALS = [
 ];
 
 export default function ProfileScreen({ navigation }) {
-  const { logout } = useAuth();
+  const { logout, isLoggingOut } = useAuth();
   const [profile, setProfile] = useState(null);
   const [diet, setDiet] = useState(null);
   const [goal, setGoal] = useState(null);
   const [goalDays, setGoalDays] = useState('30');
   const [dailyLimit, setDailyLimit] = useState('2000');
   const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const p = await getUserProfile();
-        setProfile(p);
-        setDiet(p?.diet_type ?? null);
-        setGoal(p?.goal_type ?? null);
-        setGoalDays(String(p?.goal_target_days ?? 30));
-        setDailyLimit(String(p?.daily_calorie_limit ?? 2000));
-      } catch (e) {
-        // ignore
-      }
-    })();
+  const fetchProfile = useCallback(async () => {
+    try {
+      const p = await getUserProfile();
+      setProfile(p);
+      setDiet(p?.diet_type ?? null);
+      setGoal(p?.goal_type ?? null);
+      setGoalDays(String(p?.goal_target_days ?? 30));
+      setDailyLimit(String(p?.daily_calorie_limit ?? 2000));
+    } catch (e) {
+      // ignore
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [fetchProfile])
+  );
 
   const save = async () => {
     setSaving(true);
@@ -70,15 +76,39 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out of PRAMAAN?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Log Out', style: 'destructive', onPress: async () => await logout() },
-      ]
-    );
+  const performLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await logout();
+    } catch (_e) {
+      // ignore
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  const handleLogout = () => {
+    if (loggingOut || isLoggingOut) return;
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        const confirmed = window.confirm('Are you sure you want to log out of PRAMAAN?');
+        if (confirmed) {
+          performLogout();
+        }
+      } else {
+        performLogout();
+      }
+    } else {
+      Alert.alert(
+        'Log Out',
+        'Are you sure you want to log out of PRAMAAN?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Log Out', style: 'destructive', onPress: performLogout },
+        ]
+      );
+    }
   };
 
   const initial = (profile?.name || profile?.email || 'U').trim().slice(0, 1).toUpperCase();
@@ -206,12 +236,19 @@ export default function ProfileScreen({ navigation }) {
           />
 
           <TouchableOpacity
-            style={styles.logoutBtn}
+            style={[styles.logoutBtn, (loggingOut || isLoggingOut) && { opacity: 0.6 }]}
             onPress={handleLogout}
+            disabled={loggingOut || isLoggingOut}
             activeOpacity={0.8}
           >
-            <Ionicons name="log-out-outline" size={16} color={PREMIUM_COLORS.status.avoid} style={{ marginRight: 6 }} />
-            <Text style={styles.logoutBtnText}>Log Out</Text>
+            {loggingOut || isLoggingOut ? (
+              <ActivityIndicator size="small" color={PREMIUM_COLORS.status.avoid} style={{ marginRight: 8 }} />
+            ) : (
+              <Ionicons name="log-out-outline" size={16} color={PREMIUM_COLORS.status.avoid} style={{ marginRight: 6 }} />
+            )}
+            <Text style={styles.logoutBtnText}>
+              {loggingOut || isLoggingOut ? 'Logging Out...' : 'Log Out'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

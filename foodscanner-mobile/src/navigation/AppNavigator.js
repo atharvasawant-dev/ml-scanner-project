@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Platform, StyleSheet } from 'react-native';
+import { View, Platform, StyleSheet, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -96,7 +96,13 @@ function TabNavigator() {
 export default function AppNavigator() {
   const { isLoggedIn } = useAuth();
 
-  if (isLoggedIn === null) return null;
+  if (isLoggedIn === null) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={PREMIUM_COLORS.primaryDark} />
+      </View>
+    );
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -129,5 +135,11 @@ const styles = StyleSheet.create({
   },
   iconWrapFocused: {
     backgroundColor: PREMIUM_COLORS.primaryLight,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: PREMIUM_COLORS.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -62,7 +62,7 @@ class KnowledgeRetriever:
             self.tfidf_matrix = self.vectorizer.fit_transform(corpus)
             logger.info("Indexed %d knowledge base chunks from %s", len(self.documents), self.kb_dir)
 
-    def retrieve(self, query: str, top_k: int = 3, min_score: float = 0.05) -> List[Dict[str, Any]]:
+    def retrieve(self, query: str, top_k: int = 3, min_score: float = 0.20) -> List[Dict[str, Any]]:
         """Retrieve the top_k most relevant knowledge items for a user query."""
         q = (query or "").strip()
         if not q or not self.documents or self.vectorizer is None or self.tfidf_matrix is None:
@@ -74,12 +74,25 @@ class KnowledgeRetriever:
 
         # 2. Token / keyword similarity via RapidFuzz for query-topic matching
         q_lower = q.lower()
+        q_words = set(q_lower.split())
         results: List[Dict[str, Any]] = []
 
         for idx, doc in enumerate(self.documents):
             tfidf_score = float(cos_scores[idx])
-            topic_sim = fuzz.partial_ratio(q_lower, doc["topic"].lower().replace("_", " ")) / 100.0
+            topic_str = doc["topic"].lower().replace("_", " ")
+            doc_words = set((topic_str + " " + doc["text"]).lower().split())
+
+            # Skip documents with zero vocabulary and zero token overlap
+            if tfidf_score == 0.0 and not bool(q_words & doc_words):
+                continue
+
+            topic_sim = fuzz.partial_ratio(q_lower, topic_str) / 100.0
+            topic_token_sim = fuzz.token_sort_ratio(q_lower, topic_str) / 100.0
             text_sim = fuzz.token_set_ratio(q_lower, doc["text"].lower()) / 100.0
+
+            # Guard against spurious matches for out-of-domain queries with weak vocabulary overlap
+            if tfidf_score < 0.15 and topic_token_sim < 0.40 and text_sim < 0.35:
+                continue
 
             # Combined hybrid score (70% TF-IDF, 20% topic match, 10% text token set match)
             hybrid_score = (0.70 * tfidf_score) + (0.20 * topic_sim) + (0.10 * text_sim)
@@ -89,14 +102,29 @@ class KnowledgeRetriever:
                 if term in q_lower and term in doc["topic"].lower():
                     hybrid_score += 0.10
 
-            if hybrid_score >= min_score or tfidf_score > 0.08:
+            if hybrid_score >= min_score:
                 doc_copy = dict(doc)
                 doc_copy["similarity"] = round(hybrid_score, 3)
                 results.append(doc_copy)
 
-        # Sort descending by hybrid similarity score
-        results.sort(key=lambda x: x["similarity"], reverse=True)
-        return results[: int(top_k)]
+        # Sort descending by hybrid similarity score with deterministic tie-breaking by id
+        results.sort(key=lambda x: (x["similarity"], x["id"]), reverse=True)
+
+        # Deduplicate results by document id or topic while preserving ranking order
+        deduped: List[Dict[str, Any]] = []
+        seen_ids = set()
+        seen_topics = set()
+        for doc_item in results:
+            doc_id = doc_item["id"]
+            topic = doc_item.get("topic", "")
+            if doc_id in seen_ids or (topic and topic in seen_topics):
+                continue
+            seen_ids.add(doc_id)
+            if topic:
+                seen_topics.add(topic)
+            deduped.append(doc_item)
+
+        return deduped[: int(top_k)]
 
 
 # Global retriever singleton

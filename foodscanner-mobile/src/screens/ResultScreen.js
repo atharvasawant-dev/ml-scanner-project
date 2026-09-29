@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { explainProduct, logFoodItem } from '../services/api';
+import { explainProduct, logFoodItem, scanProduct, analyzeManualProduct } from '../services/api';
 import ClaimVerificationCard from '../components/ClaimVerificationCard';
 import HealthierAlternativesCard from '../components/HealthierAlternativesCard';
 import ComparisonCard from '../components/ComparisonCard';
@@ -71,6 +71,15 @@ export default function ResultScreen({ route, navigation }) {
 
   // Expandable ingredients state
   const [expandedIngredients, setExpandedIngredients] = useState({});
+
+  // Reset local interactive state when opening a new product
+  useEffect(() => {
+    setActivePortionTab('100g');
+    setServingGrams('100');
+    setLoggedToday(false);
+    setLogging(false);
+    setExpandedIngredients({});
+  }, [productName, barcode, route?.params?.timestamp]);
 
   const toggleIngredient = (idx) => {
     setExpandedIngredients((prev) => ({
@@ -148,10 +157,17 @@ export default function ResultScreen({ route, navigation }) {
         <View style={styles.navBar}>
           <TouchableOpacity
             style={[styles.backBtn, PREMIUM_SHADOWS.sm]}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              if (navigation?.canGoBack && navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('Main', { screen: 'Scan' });
+              }
+            }}
             activeOpacity={0.8}
           >
-            <Text style={styles.backBtnText}>← Back</Text>
+            <Ionicons name="arrow-back" size={16} color={PREMIUM_COLORS.ink} style={{ marginRight: 4 }} />
+            <Text style={styles.backBtnText}>Back</Text>
           </TouchableOpacity>
 
           {brand ? (
@@ -435,9 +451,25 @@ export default function ResultScreen({ route, navigation }) {
           barcode={barcode}
           productName={productName}
           nutrition={rawNutrition}
-          onSelectAlternative={(alt) => {
-            if (alt?.barcode && String(alt.barcode) !== '00000000') {
-              navigation.replace('Result', { result: { product: alt }, timestamp: Date.now() });
+          onSelectAlternative={async (alt) => {
+            if (!alt) return;
+            try {
+              let altResult;
+              const hasBarcode = alt?.barcode && String(alt.barcode) !== '00000000' && /^\d{8,14}$/.test(String(alt.barcode).trim());
+              if (hasBarcode) {
+                altResult = await scanProduct(String(alt.barcode).trim(), alt.name || null);
+              } else if (alt.name) {
+                altResult = await analyzeManualProduct({ product_name: alt.name });
+              }
+              if (altResult) {
+                if (typeof navigation.push === 'function') {
+                  navigation.push('Result', { result: altResult, timestamp: Date.now() });
+                } else {
+                  navigation.navigate('Result', { result: altResult, timestamp: Date.now() });
+                }
+              }
+            } catch (_err) {
+              Alert.alert('Alternative Product', 'Could not load complete analysis for this alternative.');
             }
           }}
         />

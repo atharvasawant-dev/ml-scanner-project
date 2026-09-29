@@ -16,7 +16,7 @@ export default function OCRScanScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
 
   const goManual = (prefill) => {
-    navigation.replace('ManualEntry', {
+    navigation.navigate('ManualEntry', {
       productName: prefill?.product_name || prefillName || '',
       calories: prefill?.calories ?? null,
       nutrition: {
@@ -124,7 +124,13 @@ export default function OCRScanScreen({ navigation, route }) {
         <View style={styles.navBar}>
           <TouchableOpacity
             style={[styles.backBtn, PREMIUM_SHADOWS.sm]}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              if (navigation?.canGoBack && navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('Main', { screen: 'Home' });
+              }
+            }}
             activeOpacity={0.8}
           >
             <Ionicons name="arrow-back" size={16} color={PREMIUM_COLORS.ink} style={{ marginRight: 4 }} />

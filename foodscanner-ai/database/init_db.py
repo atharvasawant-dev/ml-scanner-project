@@ -1,23 +1,38 @@
-import sqlite3
+from __future__ import annotations
+
+import logging
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional, Union
 
 from sqlalchemy import inspect, text
+from sqlalchemy.engine import Connection, Engine
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "foodscanner.db"
 SCHEMA_PATH = BASE_DIR / "schema.sql"
 
 
-def run_migrations(engine) -> None:
-    """Run database migrations safely for both SQLite and PostgreSQL."""
+def run_migrations(engine: Engine) -> None:
+    """Run lightweight schema migrations safely for dev/test environments.
+    
+    If Alembic has already versioned the database (alembic_version exists),
+    this function yields authority to Alembic and performs no alterations.
+    """
     try:
         with engine.begin() as conn:
             inspector = inspect(conn)
             table_names = set(inspector.get_table_names())
+
+            # Yield to Alembic if running on an Alembic-versioned database
+            if "alembic_version" in table_names:
+                logger.info("Database is versioned by Alembic; skipping ad-hoc migrations.")
+                return
 
             # Users table migrations
             if "users" in table_names:
@@ -64,39 +79,91 @@ def run_migrations(engine) -> None:
                     if macro_col not in log_cols:
                         conn.execute(text(f"ALTER TABLE daily_food_log ADD COLUMN {macro_col} FLOAT"))
     except Exception as e:
-        print(f"Migration failed: {e}")
+        logger.error(f"Migration check failed: {e}")
         raise
 
 
-def _ensure_default_user(conn: sqlite3.Connection) -> None:
-    row = conn.execute("SELECT id FROM users WHERE id = 1").fetchone()
+def ensure_default_user(bind: Union[Engine, Connection]) -> None:
+    """Ensure a default user with ID 1 exists safely across SQLite and PostgreSQL."""
+    if isinstance(bind, Engine):
+        with bind.begin() as conn:
+            _ensure_default_user_conn(conn)
+    else:
+        _ensure_default_user_conn(bind)
+
+
+def _ensure_default_user_conn(conn: Connection) -> None:
+    inspector = inspect(conn)
+    table_names = set(inspector.get_table_names())
+    if "users" not in table_names:
+        return
+
+    row = conn.execute(text("SELECT id FROM users WHERE id = :user_id"), {"user_id": 1}).fetchone()
     if row is None:
-        conn.execute(
-            """
-            INSERT INTO users (id, name, email, hashed_password, daily_calorie_limit, diet_type, created_at)
-            VALUES (1, 'Default User', 'default@local', '', 2000, NULL, datetime('now'))
-            """
-        )
+        email_row = conn.execute(text("SELECT id FROM users WHERE email = :email"), {"email": "default@local"}).fetchone()
+        if email_row is None:
+            now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO users (id, name, email, hashed_password, daily_calorie_limit, diet_type, created_at)
+                    VALUES (:id, :name, :email, :hashed_password, :daily_calorie_limit, :diet_type, :created_at)
+                    """
+                ),
+                {
+                    "id": 1,
+                    "name": "Default User",
+                    "email": "default@local",
+                    "hashed_password": "",
+                    "daily_calorie_limit": 2000,
+                    "diet_type": None,
+                    "created_at": now_str,
+                },
+            )
+            # For PostgreSQL, ensure sequence matches max(id)
+            if conn.dialect.name == "postgresql":
+                try:
+                    conn.execute(text("SELECT setval(pg_get_serial_sequence('users', 'id'), coalesce(max(id), 1), true) FROM users;"))
+                except Exception:
+                    pass
 
 
-def init_db(db_path: Path = DB_PATH, schema_path: Path = SCHEMA_PATH) -> None:
-    if not schema_path.exists():
-        raise FileNotFoundError(f"schema.sql not found: {schema_path}")
+def init_db(
+    db_path: Optional[Path] = None,
+    schema_path: Optional[Path] = None,
+    target_engine: Optional[Engine] = None,
+) -> None:
+    """Dialect-safe database initialization for both SQLite and PostgreSQL.
+    
+    Uses declarative SQLAlchemy schema creation rather than raw SQLite scripts.
+    In production environments managed by Alembic, this does not overwrite migration schema.
+    """
+    from database.orm import Base, create_database_engine, engine as default_engine
 
-    schema_sql = schema_path.read_text(encoding="utf-8")
+    if target_engine is not None:
+        eng = target_engine
+    elif db_path is not None:
+        # Caller specified a custom path (e.g. SQLite path)
+        eng = create_database_engine(f"sqlite:///{Path(db_path).resolve().as_posix()}")
+    else:
+        eng = default_engine
 
-    conn = sqlite3.connect(db_path)
-    try:
-        conn.execute("PRAGMA foreign_keys = ON;")
-        conn.executescript(schema_sql)
-        _ensure_default_user(conn)
-        conn.commit()
-    finally:
-        conn.close()
+    # Import models so Base.metadata has all table definitions
+    from database import models  # noqa: F401
 
-    from database.orm import engine
-    run_migrations(engine)
-    print(f"Initialized/migrated database at: {db_path}")
+    with eng.begin() as conn:
+        inspector = inspect(conn)
+        table_names = set(inspector.get_table_names())
+        is_alembic_managed = "alembic_version" in table_names
+
+        # If not managed by Alembic, create tables via SQLAlchemy Base metadata
+        if not is_alembic_managed:
+            Base.metadata.create_all(bind=conn)
+
+    # Run any column additions if needed for non-alembic dev environments
+    run_migrations(eng)
+    ensure_default_user(eng)
+    logger.info(f"Database initialized safely for dialect: {eng.dialect.name}")
 
 
 if __name__ == "__main__":

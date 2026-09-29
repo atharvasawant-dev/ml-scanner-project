@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,47 +20,97 @@ import {
 } from '../theme/premiumTheme';
 import { NeoButton, NeoInput, NeoTab } from '../components/neo';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function LoginScreen() {
   const { login: authLogin } = useAuth();
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const isSubmittingRef = useRef(false);
+
+  const handleModeChange = (newMode) => {
+    setMode(newMode);
+    setErrorMessage('');
+  };
+
+  const handleEmailChange = (val) => {
+    setEmail(val);
+    if (errorMessage) setErrorMessage('');
+  };
+
+  const handlePasswordChange = (val) => {
+    setPassword(val);
+    if (errorMessage) setErrorMessage('');
+  };
 
   const onSubmit = async () => {
-    if (!email.trim() || !password) {
-      Alert.alert('Missing Details', 'Email and password are required');
+    if (loading || isSubmittingRef.current) return;
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setErrorMessage('Please enter your email address.');
       return;
     }
 
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      setErrorMessage('Please enter a valid email address (e.g. name@example.com).');
+      return;
+    }
+
+    if (!password) {
+      setErrorMessage('Please enter your password.');
+      return;
+    }
+
+    if (mode === 'register' && password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters long.');
+      return;
+    }
+
+    isSubmittingRef.current = true;
     setLoading(true);
+    setErrorMessage('');
+
     try {
       let data;
       if (mode === 'register') {
-        data = await register(email.trim(), password, name.trim() || null);
+        data = await register(trimmedEmail, password, name.trim() || null);
       } else {
-        data = await login(email.trim(), password);
+        data = await login(trimmedEmail, password);
       }
 
       const token = data?.access_token;
       if (!token) {
-        Alert.alert('Error', 'No token returned from server');
-        return;
+        throw new Error('Authentication succeeded but no access token was returned.');
       }
       await authLogin(token);
     } catch (e) {
-      const msg = getNetworkErrorMessage(e) || 'Authentication failed';
-      Alert.alert('Authentication Notice', String(msg));
+      const msg = getNetworkErrorMessage(e) || 'Authentication failed. Please check your credentials.';
+      setErrorMessage(String(msg));
+      if (Platform.OS !== 'web') {
+        Alert.alert('Authentication Notice', String(msg));
+      }
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleDemoFill = () => {
     setEmail('demo@pramaan.ai');
     setPassword('DemoPass123!');
+    setErrorMessage('');
   };
+
+  const isFormValid =
+    email.trim().length > 0 &&
+    password.length > 0 &&
+    (mode === 'login' || password.length >= 6);
 
   return (
     <View style={styles.screen}>
@@ -108,8 +158,22 @@ export default function LoginScreen() {
                 { key: 'register', label: 'Create Account' },
               ]}
               activeTab={mode}
-              onTabChange={setMode}
+              onTabChange={handleModeChange}
             />
+
+            {/* Inline Error Banner */}
+            {errorMessage ? (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={18} color={PREMIUM_COLORS.status.avoid} />
+                <Text style={styles.errorBannerText}>{errorMessage}</Text>
+                <TouchableOpacity
+                  onPress={() => setErrorMessage('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close-circle-outline" size={16} color={PREMIUM_COLORS.secondary} />
+                </TouchableOpacity>
+              </View>
+            ) : null}
 
             {mode === 'register' ? (
               <NeoInput
@@ -124,23 +188,38 @@ export default function LoginScreen() {
               label="Email Address"
               placeholder="e.g. user@example.com"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={handleEmailChange}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
             />
 
             <NeoInput
               label="Password"
               placeholder="••••••••"
               value={password}
-              onChangeText={setPassword}
-              secureTextEntry
+              onChangeText={handlePasswordChange}
+              secureTextEntry={!showPassword}
+              rightElement={
+                <TouchableOpacity
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={{ padding: 4 }}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={PREMIUM_COLORS.secondary}
+                  />
+                </TouchableOpacity>
+              }
             />
 
             <NeoButton
               title={mode === 'register' ? 'Get Started →' : 'Log In →'}
               onPress={onSubmit}
               loading={loading}
+              disabled={loading || !isFormValid}
               variant="black"
               size="lg"
               style={{ marginTop: 6 }}
@@ -232,6 +311,25 @@ const styles = StyleSheet.create({
     padding: 22,
     borderWidth: 1,
     borderColor: PREMIUM_COLORS.border,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.status.avoidBg,
+    borderColor: PREMIUM_COLORS.status.avoidBorder,
+    borderWidth: 1,
+    borderRadius: PREMIUM_RADIUS.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+    gap: 8,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: PREMIUM_COLORS.status.avoid,
+    lineHeight: 18,
   },
   demoBtn: {
     alignSelf: 'center',

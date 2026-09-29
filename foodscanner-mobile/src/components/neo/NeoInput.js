@@ -33,6 +33,8 @@ export default function NeoInput({
           placeholderTextColor={PREMIUM_COLORS.muted}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          selectionColor="#557A3E"
+          underlineColorAndroid="transparent"
           style={[styles.input, inputStyle]}
           {...rest}
         />
@@ -58,22 +60,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: PREMIUM_COLORS.card,
-    borderWidth: 1,
-    borderColor: PREMIUM_COLORS.border,
+    borderWidth: 1.5,
+    borderColor: '#E1E6DC',
     borderRadius: PREMIUM_RADIUS.md, // 16px
     paddingHorizontal: 16,
     ...PREMIUM_SHADOWS.sm,
   },
   inputBoxFocused: {
-    borderColor: PREMIUM_COLORS.primaryDark,
-    backgroundColor: PREMIUM_COLORS.card,
+    borderColor: '#557A3E',
+    backgroundColor: '#F7FAF1',
+    shadowColor: '#557A3E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
   },
   input: {
     flex: 1,
     paddingVertical: 12,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '500',
-    color: PREMIUM_COLORS.ink,
+    color: '#171A17',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    outlineStyle: 'none',
+    outlineWidth: 0,
   },
   rightBox: {
     marginLeft: 8,
