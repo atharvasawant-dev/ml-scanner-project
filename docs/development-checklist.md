@@ -22,7 +22,9 @@ This document tracks the verified completion status of development phases and ba
 | **Frontend / Auth: Batch 11 — Production Auth, Token Lifecycle & Logout Reliability** | **COMPLETE** | Login field validation, JWT extraction, Pydantic error formatting without `[object Object]`, persistent token storage, logout stack reset to Login at index 0, cross-platform confirm (web vs native), 401 interceptor latch. Verified by 14 tests in `mobile_logic.test.js`. |
 | **Frontend / UI: Batch 12 — Input Focus State, Typography & Zero Layout Shift** | **COMPLETE** | Subtle unfocused border (`#E1E6DC`), health-tech green accent focus (`#557A3E`) with `#F7FAF1` fill, identical dimensions across focus transitions preventing layout shifts. Verified by 4 tests in `mobile_logic.test.js`. |
 | **Phase 3 / Frontend: Batch 13 — Manual Nutrition Entry Complete Integration & Hardening** | **COMPLETE** | Production-ready manual nutrition entry (`ManualEntryScreen.js`), non-negative numeric constraints and bounds validation (`nutritionValidation.js`), saturated fat support, clear field error callbacks, safe API mapping, Scan ≠ Eat invariant preserved, zero fake `00000000` barcodes. Verified by 15 tests in `mobile_logic.test.js` and 3 tests in `test_manual_entry_integration.py`. |
-| **Phase 3: E2E Validation & RAG Hardening Gate** | **COMPLETE** | Centralized configuration loader (`services/config.py`), startup configuration validation gate, full 12-suite Phase 3 E2E integration test suite (`scripts/phase3_e2e_validation.py`) verifying Auth, Scan determinism, Scan ≠ Eat, claim verification, alternatives, compare symmetry, RAG prompt injection defense, tracking, and user data isolation. 177 backend tests + 54 mobile tests passing. |
+| **Phase 3 / Fullstack: Batch 14 — History Item DB Identification & Report Goal Contract Compliance** | **COMPLETE** | Real database `id` returned on `GET /history` items, explicit scan deletion targeting `/history/{scanId}`, Report goal progress contract mapped (`days_active`, `days_remaining`, `progress_score`), `NO_GOAL` handling without mock placeholders. Verified by 4 tests in `test_history_lifecycle.py` and 5 tests in `mobile_logic.test.js`. Commit: `1b5b8de`. |
+| **Phase 3 / Backend Security: Batch 15 — Production Security Hardening & API Rate Limiting** | **COMPLETE** | Thread-safe sliding window rate limiter (`services/rate_limiter.py`) protecting `/ocr` (5/min), `/chat` (15/min), and `/scan` (30/min) returning 429 with `Retry-After`; decoded image payload validation (`validate_image_payload`) rejecting corrupted files, non-image formats, and >5MB payloads returning 413; production default user creation safeguards (`ENVIRONMENT=production` and `SKIP_DEFAULT_USER=true`); lifespan FastAPI management. Verified by 19 tests in `test_production_security_hardening.py`. |
+| **Phase 3: E2E Validation & RAG Hardening Gate** | **COMPLETE** | Centralized configuration loader (`services/config.py`), startup configuration validation gate, full 12-suite Phase 3 E2E integration test suite (`scripts/phase3_e2e_validation.py`) verifying Auth, Scan determinism, Scan ≠ Eat, claim verification, alternatives, compare symmetry, RAG prompt injection defense, tracking, and user data isolation. |
 | **Phase 4 — Computer Vision** | **NOT STARTED** | No YOLO / Ultralytics object detection models. |
 | **Phase 5 — Production DevOps** | **PARTIALLY COMPLETE** | Basic Dockerfile and Render manifest exist. Missing: Redis, Nginx, Prometheus, Grafana, CI/CD pipeline. |
 | **Phase 6 — Advanced DevOps** | **NOT STARTED** | No Kubernetes, Helm charts, or microservices architecture. |
@@ -31,14 +33,14 @@ This document tracks the verified completion status of development phases and ba
 
 ## Test Suite Baseline
 
-- **Backend Tests (`foodscanner-ai/tests/`):** **177 passed**, 1 skipped, 0 failed, 0 errors across 12 test modules.
-- **Mobile Tests (`foodscanner-mobile/tests/`):** **54 passed**, 0 failed, 0 errors across 11 test suites.
-- **Combined Test Baseline:** **231 passed**, 1 skipped, 0 failed.
+- **Backend Tests (`foodscanner-ai/tests/`):** **200 passed**, 1 skipped, 0 failed, 0 errors across 13 test modules.
+- **Mobile Tests (`foodscanner-mobile/tests/`):** **59 passed**, 0 failed, 0 errors across 12 test suites.
+- **Combined Test Baseline:** **259 passed**, 1 skipped, 0 failed.
 - **Phase 3 E2E Integration Suite:** **12 of 12 test suites passed 100% cleanly** on live Uvicorn server (`scripts/phase3_e2e_validation.py`).
 
 ---
 
-## Batches 10–13 — Hardening & Manual Entry Integration
+## Batches 10–15 — Hardening, Integration & Production Security
 
 ### 1. Batch 10: Product Selection Determinism & Navigation Audit
 - Benchmark products resolve to exact canonical barcodes and never fallback to dummy barcodes.
@@ -60,6 +62,19 @@ This document tracks the verified completion status of development phases and ba
 - Error styling on `NeoInput` (`inputBoxError`).
 - In-flight submission latch preventing duplicate requests.
 - Strict invariant preserved: Scan ≠ Eat (manual analysis targets `/analyze`, never logs intake to daily diary without explicit user action).
+
+### 5. Batch 14: History Item DB Identification & Report Goal Contract Compliance
+- Explicit database `id` returned on `GET /history` items.
+- Real single-item delete targeting `/history/{scanId}` with user isolation.
+- Report screen adherence to goal contract (`days_active`, `days_remaining`, `progress_score`) and graceful empty goal handling.
+
+### 6. Batch 15: Production Security Hardening & API Rate Limiting
+- Thread-safe sliding window rate limiter (`services/rate_limiter.py`) protecting `/ocr` (5/min), `/chat` (15/min), and `/scan` (30/min).
+- Robust HTTP 429 response formatting with `Retry-After` header.
+- Decoded image payload validation (`validate_image_payload`) with magic byte verification (JPEG, PNG, GIF, WebP, BMP, TIFF), size limits (5 MB decoded / 8 MB Base64 string), and structural corruption detection.
+- Production default user creation safeguards preventing unhashed default credentials in production environments (`ENVIRONMENT=production` or `SKIP_DEFAULT_USER=true`).
+- Modern FastAPI lifespan context manager replacing deprecated startup handlers.
+
 
 ---
 

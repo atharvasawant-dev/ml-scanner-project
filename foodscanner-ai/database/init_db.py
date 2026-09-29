@@ -83,8 +83,32 @@ def run_migrations(engine: Engine) -> None:
         raise
 
 
+import os
+
+
+def should_create_default_user() -> bool:
+    """Determine whether to create default user with empty password.
+
+    Production environments (ENVIRONMENT=production/prod or SKIP_DEFAULT_USER=true)
+    strictly forbid creating default unhashed credentials.
+    """
+    env = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("ENV") or "").strip().lower()
+    if env in {"production", "prod"}:
+        return False
+    skip = str(os.getenv("SKIP_DEFAULT_USER", "")).strip().lower() in {"1", "true", "yes"}
+    return not skip
+
+
 def ensure_default_user(bind: Union[Engine, Connection]) -> None:
-    """Ensure a default user with ID 1 exists safely across SQLite and PostgreSQL."""
+    """Ensure a default user with ID 1 exists safely across SQLite and PostgreSQL in dev/test.
+
+    In production environments (ENVIRONMENT=production or SKIP_DEFAULT_USER=true),
+    default user creation is bypassed to prevent unhashed default credentials.
+    """
+    if not should_create_default_user():
+        logger.info("Production environment detected or SKIP_DEFAULT_USER=true; skipping default user creation.")
+        return
+
     if isinstance(bind, Engine):
         with bind.begin() as conn:
             _ensure_default_user_conn(conn)

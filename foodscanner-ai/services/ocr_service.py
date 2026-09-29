@@ -21,6 +21,69 @@ _OCR_CACHE: Dict[str, Dict[str, Any]] = {}
 _OCR_CACHE_MAX = 64
 _EASYOCR_READER = None
 
+MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB maximum decoded image payload
+MAX_BASE64_CHAR_LIMIT = 8 * 1024 * 1024  # ~8 MB Base64 string limit
+SUPPORTED_IMAGE_FORMATS = {"JPEG", "PNG", "GIF", "WEBP", "BMP", "TIFF"}
+
+
+def detect_image_format(data: bytes) -> Optional[str]:
+    """Detect image format from binary magic bytes / file signatures."""
+    if not data or len(data) < 4:
+        return None
+    if data.startswith(b"\xff\xd8\xff"):
+        return "JPEG"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "PNG"
+    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return "GIF"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "WEBP"
+    if data.startswith(b"BM"):
+        return "BMP"
+    if data.startswith(b"II*\x00") or data.startswith(b"MM\x00*"):
+        return "TIFF"
+    return None
+
+
+def validate_image_payload(
+    image_bytes: bytes,
+    max_bytes: int = MAX_IMAGE_SIZE_BYTES,
+) -> Tuple[bool, int, str, Optional[str]]:
+    """Validate decoded image bytes for size, magic bytes signature, and structural integrity.
+
+    Returns:
+        (is_valid, http_status_code, error_detail, detected_format)
+    """
+    if not image_bytes:
+        return False, 400, "empty image payload", None
+
+    if len(image_bytes) > max_bytes:
+        return (
+            False,
+            413,
+            f"Image payload exceeds maximum allowed size of {max_bytes // (1024 * 1024)} MB",
+            None,
+        )
+
+    fmt = detect_image_format(image_bytes)
+    if fmt is None:
+        return (
+            False,
+            400,
+            "Unsupported image format. Allowed formats: JPEG, PNG, GIF, WebP, BMP, TIFF",
+            None,
+        )
+
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            img.verify()
+    except Exception:
+        return False, 400, "Corrupted or invalid image data", None
+
+    return True, 200, "", fmt
+
 
 # ==============================================================================
 # 1. ENUMS & DATA STRUCTURES

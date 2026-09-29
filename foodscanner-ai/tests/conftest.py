@@ -11,3 +11,15 @@ if str(root) not in sys.path:
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
+
+import pytest
+from services.rate_limiter import get_rate_limiter
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits():
+    """Reset process-local rate limiter before and after each test for clean isolation."""
+    limiter = get_rate_limiter()
+    limiter.reset()
+    yield
+    limiter.reset()

@@ -10,8 +10,9 @@ import os
 import random
 import re
 import time
+from contextlib import asynccontextmanager
 from typing import Any
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
@@ -35,10 +36,17 @@ from services.food_health_score import compute_food_health_score, compute_diet_a
 from services.final_decision_engine import compute_final_decision
 from services.decision_explainer import build_decision_reasons
 from services.claim_verification import verify_claims
-from services.ocr_service import process_image_ocr, parse_structured_ocr, run_ocr_engine
+from services.ocr_service import (
+    process_image_ocr,
+    parse_structured_ocr,
+    run_ocr_engine,
+    validate_image_payload,
+    MAX_BASE64_CHAR_LIMIT,
+)
 from services.personalization import get_personalized_analysis
 from services.ai_nutrition_assistant import ask_nutrition_assistant
 from services.config import load_environment, validate_runtime_config
+from services.rate_limiter import enforce_rate_limit
 
 # Load environment configuration early
 load_environment()
@@ -65,7 +73,16 @@ def _get_allowed_origins() -> list[str]:
     return origins
 
 
-app = FastAPI(title="FoodScanner AI API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Validate required runtime configuration early before accepting requests
+    validate_runtime_config(raise_error=True)
+    orm_init_db()
+    print("FoodScanner API running. For Expo Go, start uvicorn with --host 0.0.0.0 and open http://<your-lan-ip>:8000/health")
+    yield
+
+
+app = FastAPI(title="FoodScanner AI API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -261,14 +278,24 @@ def _parse_nutrition_from_text(text: str) -> dict:
 @app.post("/ocr", tags=["tracking"])
 def ocr_nutrition_label(
     req: OCRRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
 ) -> dict:
+    enforce_rate_limit("ocr", request, user_id=current_user.id)
+
     img_b64 = (req.image_base64 or "").strip()
     if not img_b64:
         raise HTTPException(status_code=400, detail="image_base64 is required")
 
     if "," in img_b64 and "base64" in img_b64[:80].lower():
-        img_b64 = img_b64.split(",", 1)[1]
+        img_b64 = img_b64.split(",", 1)[1].strip()
+
+    # Reject oversized Base64 string early before decoding
+    if len(img_b64) > MAX_BASE64_CHAR_LIMIT:
+        raise HTTPException(
+            status_code=413,
+            detail="Image payload exceeds maximum allowed size of 5 MB",
+        )
 
     try:
         image_bytes = base64.b64decode(img_b64, validate=False)
@@ -277,6 +304,11 @@ def ocr_nutrition_label(
 
     if not image_bytes:
         raise HTTPException(status_code=400, detail="empty image payload")
+
+    # Safe validation of decoded bytes (size, magic bytes, integrity)
+    is_valid, status_code, err_detail, _ = validate_image_payload(image_bytes)
+    if not is_valid:
+        raise HTTPException(status_code=status_code, detail=err_detail)
 
     result = process_image_ocr(image_bytes)
 
@@ -488,12 +520,7 @@ def analyze(
     return analysis_res
 
 
-@app.on_event("startup")
-def on_startup() -> None:
-    # Validate required runtime configuration early before accepting requests
-    validate_runtime_config(raise_error=True)
-    orm_init_db()
-    print("FoodScanner API running. For Expo Go, start uvicorn with --host 0.0.0.0 and open http://<your-lan-ip>:8000/health")
+# Startup lifecycle managed via FastAPI lifespan context manager
 
 
 @app.get("/health", tags=["tracking"])
@@ -665,9 +692,11 @@ def today(
 @app.post("/scan", tags=["tracking"])
 def scan(
     req: ScanRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
+    enforce_rate_limit("scan", request, user_id=current_user.id)
     barcode = req.barcode.strip()
     if not barcode:
         raise HTTPException(status_code=400, detail="barcode is required")
@@ -1258,9 +1287,11 @@ def goal_report(
 @app.post("/chat", tags=["assistant"])
 def chat_endpoint(
     req: ChatRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
+    enforce_rate_limit("chat", request, user_id=current_user.id)
     msg = (req.message or "").strip()
     if not msg:
         raise HTTPException(status_code=400, detail="message cannot be empty")

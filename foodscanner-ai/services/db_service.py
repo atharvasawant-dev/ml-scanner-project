@@ -276,10 +276,15 @@ def get_product_by_name_fuzzy(db: Session, query: str, min_similarity: float = 8
     return result
 
 
-def ensure_default_user(db: Session) -> User:
+def ensure_default_user(db: Session) -> Optional[User]:
     user = db.execute(select(User).where(User.id == 1)).scalar_one_or_none()
     if user is not None:
         return user
+
+    import os
+    env = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("ENV") or "").strip().lower()
+    if env in {"production", "prod"} or str(os.getenv("SKIP_DEFAULT_USER", "")).strip().lower() in {"1", "true", "yes"}:
+        return None
 
     user = User(
         id=1,
