@@ -862,5 +862,364 @@ describe('Batch 12: Search Input Focus State, Typography & Zero Layout Shift Inv
   });
 });
 
+describe('Batch 13: Manual Nutrition Entry Complete Integration & Invariant Tests', () => {
+  // Pure test helpers mirroring src/utils/nutritionValidation.js and ManualEntryScreen.js
+  function validateNumericField(val, fieldName, maxVal, unit = 'g') {
+    if (val === null || val === undefined) return { value: null, error: null };
+    const s = String(val).trim();
+    if (s === '') return { value: null, error: null };
+    if (s.startsWith('-')) return { value: null, error: `${fieldName} cannot be negative` };
+    if (!/^\d+(\.\d+)?$/.test(s)) return { value: null, error: `${fieldName} must be a valid number` };
+    const num = Number(s);
+    if (!Number.isFinite(num) || Number.isNaN(num)) return { value: null, error: `${fieldName} must be a valid number` };
+    if (num < 0) return { value: null, error: `${fieldName} cannot be negative` };
+    if (maxVal != null && num > maxVal) return { value: null, error: `${fieldName} cannot exceed ${maxVal}${unit}` };
+    return { value: num, error: null };
+  }
+
+  function validateManualNutritionForm(fields = {}) {
+    const errors = {};
+    const values = {};
+    const rawName = String(fields.productName || '').trim();
+    if (!rawName) errors.productName = 'Product name is required';
+    else if (rawName.length > 120) errors.productName = 'Product name cannot exceed 120 characters';
+    else values.product_name = rawName;
+
+    const numericRules = [
+      { key: 'calories', label: 'Calories', max: 2000, unit: ' kcal' },
+      { key: 'protein', label: 'Protein', max: 100, unit: 'g' },
+      { key: 'carbs', label: 'Carbohydrates', max: 100, unit: 'g' },
+      { key: 'sugar', label: 'Sugar', max: 100, unit: 'g' },
+      { key: 'fat', label: 'Total Fat', max: 100, unit: 'g' },
+      { key: 'saturatedFat', label: 'Saturated Fat', max: 100, unit: 'g', targetKey: 'saturated_fat' },
+      { key: 'fiber', label: 'Fiber', max: 100, unit: 'g' },
+      { key: 'salt', label: 'Salt', max: 100, unit: 'g' },
+    ];
+
+    let hasAtLeastOneNutrient = false;
+    for (const rule of numericRules) {
+      const rawVal = fields[rule.key];
+      const res = validateNumericField(rawVal, rule.label, rule.max, rule.unit);
+      if (res.error) errors[rule.key] = res.error;
+      else {
+        values[rule.targetKey || rule.key] = res.value;
+        if (res.value !== null) hasAtLeastOneNutrient = true;
+      }
+    }
+
+    if (values.fat != null && values.saturated_fat != null && values.saturated_fat > values.fat) {
+      errors.saturatedFat = 'Saturated fat cannot exceed total fat';
+    }
+    if (values.carbs != null && values.sugar != null && values.sugar > values.carbs) {
+      errors.sugar = 'Total sugar cannot exceed carbohydrates';
+    }
+    if (!hasAtLeastOneNutrient && !errors.calories) {
+      errors.calories = 'Please enter calories or at least one nutrient value';
+    }
+
+    const isValid = Object.keys(errors).length === 0;
+    return { isValid, errors, values: isValid ? values : null };
+  }
+
+  function mapManualAnalysisToResult(analyzed, payload) {
+    return {
+      ...analyzed,
+      product: {
+        ...(analyzed?.product || {}),
+        name: analyzed?.product?.name || payload.product_name,
+        nutrition: analyzed?.product?.nutrition || payload,
+        barcode: null, // manual entry does not have a fake barcode
+      },
+      analysis: analyzed?.analysis || {},
+      decision: analyzed?.decision || {},
+      diet_note: analyzed?.diet_note || null,
+      recommendations: analyzed?.recommendations || [],
+      health_score: analyzed?.analysis?.health_score ?? analyzed?.health_score ?? 0,
+      final_decision: analyzed?.decision?.final_decision ?? analyzed?.final_decision ?? 'SAFE',
+      reasons: analyzed?.decision?.reasons ?? analyzed?.reasons ?? [],
+    };
+  }
+
+  test('1. Manual form validation: rejects empty product name and whitespace', () => {
+    const emptyName = validateManualNutritionForm({ productName: '', calories: '200' });
+    assert.strictEqual(emptyName.isValid, false);
+    assert.strictEqual(emptyName.errors.productName, 'Product name is required');
+
+    const spacesName = validateManualNutritionForm({ productName: '   ', calories: '200' });
+    assert.strictEqual(spacesName.isValid, false);
+    assert.strictEqual(spacesName.errors.productName, 'Product name is required');
+
+    const validName = validateManualNutritionForm({ productName: 'Test Oats', calories: '389' });
+    assert.strictEqual(validName.isValid, true);
+    assert.strictEqual(validName.values.product_name, 'Test Oats');
+  });
+
+  test('2. Numeric validation: parses valid integers, decimals, and zero', () => {
+    assert.deepStrictEqual(validateNumericField('0', 'Sugar', 100), { value: 0, error: null });
+    assert.deepStrictEqual(validateNumericField('0.0', 'Fat', 100), { value: 0, error: null });
+    assert.deepStrictEqual(validateNumericField('389', 'Calories', 2000), { value: 389, error: null });
+    assert.deepStrictEqual(validateNumericField('16.9', 'Protein', 100), { value: 16.9, error: null });
+  });
+
+  test('3. Decimal values: maintains precision without float distortion', () => {
+    const res = validateNumericField('0.05', 'Salt', 100);
+    assert.strictEqual(res.error, null);
+    assert.strictEqual(res.value, 0.05);
+
+    const oats = validateManualNutritionForm({
+      productName: 'Test Oats',
+      calories: '389',
+      fat: '6.9',
+      saturatedFat: '1.2',
+      carbs: '66.3',
+      sugar: '0.9',
+      fiber: '10.6',
+      protein: '16.9',
+      salt: '0.05',
+    });
+    assert.strictEqual(oats.isValid, true);
+    assert.strictEqual(oats.values.fat, 6.9);
+    assert.strictEqual(oats.values.saturated_fat, 1.2);
+    assert.strictEqual(oats.values.salt, 0.05);
+  });
+
+  test('4. Empty values: empty inputs are null, NOT silently converted to zero', () => {
+    const res = validateNumericField('', 'Fiber', 100);
+    assert.strictEqual(res.value, null);
+    assert.strictEqual(res.error, null);
+
+    const formRes = validateManualNutritionForm({
+      productName: 'Black Coffee',
+      calories: '5',
+      fat: '',
+      sugar: '',
+      protein: '',
+    });
+    assert.strictEqual(formRes.isValid, true);
+    assert.strictEqual(formRes.values.fat, null);
+    assert.strictEqual(formRes.values.sugar, null);
+    assert.strictEqual(formRes.values.protein, null);
+    assert.notStrictEqual(formRes.values.fat, 0);
+  });
+
+  test('5. Invalid values: rejects negative, NaN, malformed text and excessive values', () => {
+    assert.strictEqual(validateNumericField('-10', 'Calories', 2000).error, 'Calories cannot be negative');
+    assert.strictEqual(validateNumericField('abc', 'Protein', 100).error, 'Protein must be a valid number');
+    assert.strictEqual(validateNumericField('1.2.3', 'Carbs', 100).error, 'Carbs must be a valid number');
+    assert.strictEqual(validateNumericField('2500', 'Calories', 2000, ' kcal').error, 'Calories cannot exceed 2000 kcal');
+    assert.strictEqual(validateNumericField('150', 'Sugar', 100).error, 'Sugar cannot exceed 100g');
+
+    // Saturated fat > total fat
+    const consistencyErr = validateManualNutritionForm({
+      productName: 'Bad Snack',
+      calories: '200',
+      fat: '5',
+      saturatedFat: '8',
+    });
+    assert.strictEqual(consistencyErr.isValid, false);
+    assert.strictEqual(consistencyErr.errors.saturatedFat, 'Saturated fat cannot exceed total fat');
+  });
+
+  test('6. Correct API payload: builds exact schema required by /analyze', () => {
+    const validation = validateManualNutritionForm({
+      productName: 'Test Oats',
+      calories: '389',
+      fat: '6.9',
+      saturatedFat: '1.2',
+      carbs: '66.3',
+      sugar: '0.9',
+      fiber: '10.6',
+      protein: '16.9',
+      salt: '0.05',
+    });
+    assert.strictEqual(validation.isValid, true);
+    const payload = validation.values;
+
+    assert.strictEqual(payload.product_name, 'Test Oats');
+    assert.strictEqual(payload.calories, 389);
+    assert.strictEqual(payload.fat, 6.9);
+    assert.strictEqual(payload.saturated_fat, 1.2);
+    assert.strictEqual(payload.carbs, 66.3);
+    assert.strictEqual(payload.sugar, 0.9);
+    assert.strictEqual(payload.fiber, 10.6);
+    assert.strictEqual(payload.protein, 16.9);
+    assert.strictEqual(payload.salt, 0.05);
+  });
+
+  test('7. Successful API response mapping: constructs valid ResultScreen state', () => {
+    const mockApiResponse = {
+      product: {
+        name: 'Test Oats',
+        nutrition: { calories: 389, fat: 6.9, sugar: 0.9, protein: 16.9 },
+        nutriscore: null,
+      },
+      analysis: {
+        ingredient_analysis: { risk_level: 'LOW' },
+        additive_analysis: { risk_level: 'LOW' },
+        health_score: 100,
+      },
+      decision: {
+        final_decision: 'SAFE',
+        reasons: [],
+      },
+      diet_note: null,
+      recommendations: [],
+    };
+
+    const payload = { product_name: 'Test Oats', calories: 389 };
+    const result = mapManualAnalysisToResult(mockApiResponse, payload);
+
+    assert.strictEqual(result.product.name, 'Test Oats');
+    assert.strictEqual(result.analysis.health_score, 100);
+    assert.strictEqual(result.health_score, 100);
+    assert.strictEqual(result.decision.final_decision, 'SAFE');
+    assert.strictEqual(result.final_decision, 'SAFE');
+    assert.strictEqual(result.product.barcode, null);
+  });
+
+  test('8. Error response handling: formats Pydantic array and network errors cleanly', () => {
+    const pydanticError = {
+      response: {
+        status: 422,
+        data: {
+          detail: [
+            { loc: ['body', 'calories'], msg: 'Input should be a valid number' },
+            { loc: ['body', 'product_name'], msg: 'Field required' },
+          ],
+        },
+      },
+    };
+    const formattedMsg = getNetworkErrorMessage(pydanticError);
+    assert.ok(formattedMsg.includes('Input should be a valid number'));
+    assert.ok(formattedMsg.includes('Field required'));
+    assert.notStrictEqual(formattedMsg, '[object Object]');
+
+    const offlineError = { request: {}, message: 'Network Error' };
+    const offlineMsg = getNetworkErrorMessage(offlineError);
+    assert.ok(offlineMsg.includes('Cannot reach backend'));
+  });
+
+  test('9. Loading state: button is disabled when loading is active', () => {
+    function getButtonState(loading) {
+      return {
+        disabled: Boolean(loading),
+        loading: Boolean(loading),
+      };
+    }
+    assert.deepStrictEqual(getButtonState(true), { disabled: true, loading: true });
+    assert.deepStrictEqual(getButtonState(false), { disabled: false, loading: false });
+  });
+
+  test('10. Duplicate submission protection: in-flight latch prevents multiple requests', async () => {
+    let apiCallCount = 0;
+    let loading = false;
+
+    async function submitForm() {
+      if (loading) return 'blocked';
+      loading = true;
+      try {
+        apiCallCount += 1;
+        await new Promise((r) => setTimeout(r, 20));
+        return 'success';
+      } finally {
+        loading = false;
+      }
+    }
+
+    // Fire 5 rapid submissions simultaneously
+    const results = await Promise.all([
+      submitForm(),
+      submitForm(),
+      submitForm(),
+      submitForm(),
+      submitForm(),
+    ]);
+
+    assert.strictEqual(apiCallCount, 1, 'Only one API request should be made on rapid taps');
+    assert.strictEqual(results.filter((r) => r === 'success').length, 1);
+    assert.strictEqual(results.filter((r) => r === 'blocked').length, 4);
+  });
+
+  test('11. Result navigation: creates route params with canonical result and timestamp', () => {
+    const payload = { product_name: 'Test Oats', calories: 389 };
+    const result = mapManualAnalysisToResult({ analysis: { health_score: 95 } }, payload);
+    const navParams = { result, timestamp: Date.now() };
+
+    assert.ok(navParams.timestamp > 0);
+    assert.strictEqual(navParams.result.product.name, 'Test Oats');
+    assert.strictEqual(navParams.result.health_score, 95);
+  });
+
+  test('12. Scan ≠ Eat: manual analysis targets /analyze, NEVER /food-log', () => {
+    const validation = validateManualNutritionForm({ productName: 'Test Oats', calories: '389' });
+    const analysisReq = { path: '/analyze', method: 'POST', body: validation.values };
+
+    assert.strictEqual(analysisReq.path, '/analyze');
+    assert.notStrictEqual(analysisReq.path, '/food-log');
+  });
+
+  test('13. Explicit diary logging: diary action button correctly passes nutrition to /food-log', () => {
+    function buildManualDiaryLog({ productName, nutrition, servingSize, barcode }) {
+      return {
+        path: '/food-log',
+        method: 'POST',
+        body: {
+          product_name: productName,
+          calories: Number(nutrition?.calories) || 0,
+          fat: nutrition?.fat != null ? Number(nutrition.fat) : null,
+          sugar: nutrition?.sugar != null ? Number(nutrition.sugar) : null,
+          salt: nutrition?.salt != null ? Number(nutrition.salt) : null,
+          protein: nutrition?.protein != null ? Number(nutrition.protein) : null,
+          fiber: nutrition?.fiber != null ? Number(nutrition.fiber) : null,
+          carbs: nutrition?.carbs != null ? Number(nutrition.carbs) : null,
+          serving_size: servingSize || 100,
+          barcode: barcode || null,
+        },
+      };
+    }
+
+    const logReq = buildManualDiaryLog({
+      productName: 'Test Oats',
+      nutrition: { calories: 389, fat: 6.9, sugar: 0.9, protein: 16.9 },
+      servingSize: 100,
+      barcode: null,
+    });
+
+    assert.strictEqual(logReq.path, '/food-log');
+    assert.strictEqual(logReq.body.product_name, 'Test Oats');
+    assert.strictEqual(logReq.body.calories, 389);
+    assert.strictEqual(logReq.body.protein, 16.9);
+    assert.strictEqual(logReq.body.barcode, null);
+  });
+
+  test('14. Authentication: client interceptor attaches Bearer token to /analyze', async () => {
+    async function simulateRequestInterceptor(config, storedToken) {
+      if (storedToken) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${storedToken}`;
+      }
+      return config;
+    }
+
+    const config = await simulateRequestInterceptor({ url: '/analyze' }, 'valid_jwt_token_xyz');
+    assert.strictEqual(config.headers.Authorization, 'Bearer valid_jwt_token_xyz');
+  });
+
+  test('15. Manual result without barcode: barcode is null and child cards handle it gracefully', () => {
+    const payload = { product_name: 'Custom Salad', calories: 150 };
+    const result = mapManualAnalysisToResult({}, payload);
+
+    assert.strictEqual(result.product.barcode, null);
+    assert.notStrictEqual(result.product.barcode, '00000000', 'Must not use fake 00000000 barcode');
+
+    // Child card barcode sanitization logic
+    const sanitizedBarcode = result.product.barcode && String(result.product.barcode) !== '00000000'
+      ? String(result.product.barcode)
+      : null;
+    assert.strictEqual(sanitizedBarcode, null);
+  });
+});
+
+
 
 

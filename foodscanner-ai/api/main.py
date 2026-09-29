@@ -100,6 +100,7 @@ class AnalyzeRequest(BaseModel):
     product_name: str
     calories: float | None = None
     fat: float | None = None
+    saturated_fat: float | None = None
     sugar: float | None = None
     salt: float | None = None
     protein: float | None = None
@@ -357,6 +358,7 @@ def analyze(
         "product_name": name,
         "calories": req.calories,
         "fat": req.fat,
+        "saturated_fat": req.saturated_fat,
         "sugar": req.sugar,
         "salt": req.salt,
         "protein": req.protein,
@@ -396,6 +398,7 @@ def analyze(
     nutrition_per_100g = {
         "calories": product.get("calories"),
         "fat": product.get("fat"),
+        "saturated_fat": product.get("saturated_fat"),
         "sugar": product.get("sugar"),
         "salt": product.get("salt"),
         "protein": product.get("protein"),
@@ -426,6 +429,7 @@ def analyze(
             "serving_size": float(serving_size),
             "calories": _scale(nutrition_per_100g.get("calories")),
             "fat": _scale(nutrition_per_100g.get("fat")),
+            "saturated_fat": _scale(nutrition_per_100g.get("saturated_fat")),
             "sugar": _scale(nutrition_per_100g.get("sugar")),
             "salt": _scale(nutrition_per_100g.get("salt")),
             "protein": _scale(nutrition_per_100g.get("protein")),

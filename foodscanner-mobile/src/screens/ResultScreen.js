@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { explainProduct, logFoodItem, scanProduct, analyzeManualProduct } from '../services/api';
+import { explainProduct, logFoodItem, scanProduct, analyzeManualProduct, getNetworkErrorMessage } from '../services/api';
 import ClaimVerificationCard from '../components/ClaimVerificationCard';
 import HealthierAlternativesCard from '../components/HealthierAlternativesCard';
 import ComparisonCard from '../components/ComparisonCard';
@@ -112,6 +112,12 @@ export default function ResultScreen({ route, navigation }) {
       await logFoodItem({
         product_name: productName,
         calories: Number(caloriesVal) || 0,
+        fat: currentNutrition?.fat != null ? Number(currentNutrition.fat) : null,
+        sugar: currentNutrition?.sugar != null ? Number(currentNutrition.sugar) : null,
+        salt: currentNutrition?.salt != null ? Number(currentNutrition.salt) : (currentNutrition?.sodium != null ? Number(currentNutrition.sodium) : null),
+        protein: currentNutrition?.protein != null ? Number(currentNutrition.protein) : null,
+        fiber: currentNutrition?.fiber != null ? Number(currentNutrition.fiber) : null,
+        carbs: currentNutrition?.carbs != null ? Number(currentNutrition.carbs) : null,
         serving_size: activePortionTab === '100g' ? 100 : parseFloat(servingGrams) || 100,
         barcode: barcode && String(barcode) !== '00000000' ? String(barcode) : null,
         nutrition: currentNutrition,
@@ -119,7 +125,7 @@ export default function ResultScreen({ route, navigation }) {
       setLoggedToday(true);
       Alert.alert('Logged to Daily Diary', `${productName} (${caloriesVal} kcal) has been recorded in your daily intake diary.`);
     } catch (e) {
-      const msg = e?.response?.data?.detail || e?.message || 'Failed to log intake';
+      const msg = getNetworkErrorMessage(e);
       Alert.alert('Diary Error', String(msg));
     } finally {
       setLogging(false);

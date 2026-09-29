@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { analyzeManualProduct } from '../services/api';
+import { analyzeManualProduct, getNetworkErrorMessage } from '../services/api';
+import { validateManualNutritionForm } from '../utils/nutritionValidation';
 import {
   PREMIUM_COLORS,
   PREMIUM_SHADOWS,
@@ -10,94 +11,129 @@ import {
 } from '../theme/premiumTheme';
 import { NeoButton, NeoInput } from '../components/neo';
 
-function _toNum(v) {
-  if (v === null || v === undefined) return null;
-  const s = String(v).trim();
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
-
 export default function ManualEntryScreen({ navigation, route }) {
-  const prefillName = route?.params?.productName;
-  const prefillNutrition = route?.params?.nutrition;
-  const prefillCalories = route?.params?.calories;
+  const [productName, setProductName] = useState('');
+  const [calories, setCalories] = useState('');
+  const [protein, setProtein] = useState('');
+  const [carbs, setCarbs] = useState('');
+  const [sugar, setSugar] = useState('');
+  const [fat, setFat] = useState('');
+  const [saturatedFat, setSaturatedFat] = useState('');
+  const [fiber, setFiber] = useState('');
+  const [salt, setSalt] = useState('');
 
-  const [productName, setProductName] = useState(String(prefillName || ''));
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState(null);
 
-  const [calories, setCalories] = useState(
-    prefillNutrition?.calories != null
-      ? String(prefillNutrition.calories)
-      : prefillCalories != null
-        ? String(prefillCalories)
-        : ''
-  );
-  const [fat, setFat] = useState(prefillNutrition?.fat != null ? String(prefillNutrition.fat) : '');
-  const [sugar, setSugar] = useState(prefillNutrition?.sugar != null ? String(prefillNutrition.sugar) : '');
-  const [salt, setSalt] = useState(prefillNutrition?.salt != null ? String(prefillNutrition.salt) : '');
-  const [protein, setProtein] = useState(prefillNutrition?.protein != null ? String(prefillNutrition.protein) : '');
-  const [fiber, setFiber] = useState(prefillNutrition?.fiber != null ? String(prefillNutrition.fiber) : '');
-  const [carbs, setCarbs] = useState(prefillNutrition?.carbs != null ? String(prefillNutrition.carbs) : '');
+  // Prefill or reset state on route parameter changes
+  useEffect(() => {
+    const prefillName = route?.params?.productName;
+    const prefillNutrition = route?.params?.nutrition;
+    const prefillCalories = route?.params?.calories;
 
-  const payload = useMemo(
-    () => ({
-      product_name: String(productName || '').trim(),
-      calories: _toNum(calories),
-      fat: _toNum(fat),
-      sugar: _toNum(sugar),
-      salt: _toNum(salt),
-      protein: _toNum(protein),
-      fiber: _toNum(fiber),
-      carbs: _toNum(carbs),
-    }),
-    [productName, calories, fat, sugar, salt, protein, fiber, carbs]
-  );
+    if (prefillName != null) {
+      setProductName(String(prefillName));
+    }
+    if (prefillCalories != null) {
+      setCalories(String(prefillCalories));
+    }
+    if (prefillNutrition && typeof prefillNutrition === 'object') {
+      if (prefillNutrition.calories != null) setCalories(String(prefillNutrition.calories));
+      if (prefillNutrition.protein != null) setProtein(String(prefillNutrition.protein));
+      if (prefillNutrition.carbs != null) setCarbs(String(prefillNutrition.carbs));
+      if (prefillNutrition.sugar != null) setSugar(String(prefillNutrition.sugar));
+      if (prefillNutrition.fat != null) setFat(String(prefillNutrition.fat));
+      if (prefillNutrition.saturated_fat != null) setSaturatedFat(String(prefillNutrition.saturated_fat));
+      else if (prefillNutrition.saturatedFat != null) setSaturatedFat(String(prefillNutrition.saturatedFat));
+      if (prefillNutrition.fiber != null) setFiber(String(prefillNutrition.fiber));
+      if (prefillNutrition.salt != null) setSalt(String(prefillNutrition.salt));
+      else if (prefillNutrition.sodium != null) setSalt(String(prefillNutrition.sodium));
+    }
+
+    setErrors({});
+    setApiError(null);
+  }, [route?.params]);
+
+  const clearFieldError = (fieldName) => {
+    if (errors[fieldName]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[fieldName];
+        return next;
+      });
+    }
+    if (apiError) setApiError(null);
+  };
 
   const onSubmit = async () => {
-    if (!payload.product_name) {
-      Alert.alert('Missing Product Name', 'Product name is required to run analysis.');
+    // 1. Duplicate submission guard
+    if (loading) return;
+
+    // 2. Client-side input validation
+    const validation = validateManualNutritionForm({
+      productName,
+      calories,
+      protein,
+      carbs,
+      sugar,
+      fat,
+      saturatedFat,
+      fiber,
+      salt,
+    });
+
+    if (!validation.isValid) {
+      setErrors(validation.errors);
+      const firstError = Object.values(validation.errors)[0];
+      if (Platform.OS !== 'web' && firstError) {
+        Alert.alert('Validation Error', firstError);
+      }
       return;
     }
 
+    setErrors({});
+    setApiError(null);
     setLoading(true);
+
     try {
+      const payload = validation.values;
       const analyzed = await analyzeManualProduct(payload);
 
+      // Construct canonical ResultScreen state
       const result = {
+        ...analyzed,
         product: {
-          name: analyzed?.product?.name || payload.product_name,
-          nutrition: analyzed?.product?.nutrition || analyzed?.nutrition || {
+          ...(analyzed.product || {}),
+          name: analyzed.product?.name || payload.product_name,
+          nutrition: analyzed.product?.nutrition || {
             calories: payload.calories,
             fat: payload.fat,
+            saturated_fat: payload.saturated_fat,
             sugar: payload.sugar,
             salt: payload.salt,
             protein: payload.protein,
             fiber: payload.fiber,
             carbs: payload.carbs,
           },
-          barcode: '00000000',
+          barcode: null, // Manual entry does not have a fake barcode
         },
-        analysis: analyzed?.analysis || {
-          ingredient_analysis: null,
-          additive_analysis: null,
-          health_score: analyzed?.health_score,
-        },
-        decision: analyzed?.decision || {
-          final_decision: analyzed?.final_decision,
-          reasons: analyzed?.reasons,
-        },
-        diet_note: analyzed?.diet_note,
-        recommendations: analyzed?.recommendations || [],
-        final_decision: analyzed?.final_decision,
-        health_score: analyzed?.health_score,
-        reasons: analyzed?.reasons,
+        analysis: analyzed.analysis || {},
+        decision: analyzed.decision || {},
+        diet_note: analyzed.diet_note || null,
+        recommendations: analyzed.recommendations || [],
+        health_score: analyzed.analysis?.health_score ?? analyzed.health_score ?? 0,
+        final_decision: analyzed.decision?.final_decision ?? analyzed.final_decision ?? 'SAFE',
+        reasons: analyzed.decision?.reasons ?? analyzed.reasons ?? [],
       };
 
       navigation.navigate('Result', { result, timestamp: Date.now() });
     } catch (e) {
-      const msg = e?.response?.data?.detail || e?.message || 'Analysis failed';
-      Alert.alert('Analysis Error', String(msg));
+      const msg = getNetworkErrorMessage(e) || 'Manual nutrition analysis failed. Please try again.';
+      setApiError(msg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Analysis Notice', String(msg));
+      }
     } finally {
       setLoading(false);
     }
@@ -140,13 +176,24 @@ export default function ManualEntryScreen({ navigation, route }) {
           </Text>
         </View>
 
+        {apiError ? (
+          <View style={styles.apiErrorBox}>
+            <Ionicons name="alert-circle-outline" size={16} color={PREMIUM_COLORS.status.avoid} />
+            <Text style={styles.apiErrorText}>{apiError}</Text>
+          </View>
+        ) : null}
+
         {/* Form Card */}
         <View style={[styles.card, PREMIUM_SHADOWS.sm]}>
           <NeoInput
             label="Product Name *"
             placeholder="e.g. Handmade Granola"
             value={productName}
-            onChangeText={setProductName}
+            onChangeText={(text) => {
+              setProductName(text);
+              clearFieldError('productName');
+            }}
+            error={errors.productName}
           />
 
           <View style={styles.row}>
@@ -155,7 +202,11 @@ export default function ManualEntryScreen({ navigation, route }) {
                 label="Calories (kcal)"
                 placeholder="450"
                 value={calories}
-                onChangeText={setCalories}
+                onChangeText={(text) => {
+                  setCalories(text);
+                  clearFieldError('calories');
+                }}
+                error={errors.calories}
                 keyboardType="numeric"
               />
             </View>
@@ -164,7 +215,11 @@ export default function ManualEntryScreen({ navigation, route }) {
                 label="Protein (g)"
                 placeholder="12.5"
                 value={protein}
-                onChangeText={setProtein}
+                onChangeText={(text) => {
+                  setProtein(text);
+                  clearFieldError('protein');
+                }}
+                error={errors.protein}
                 keyboardType="numeric"
               />
             </View>
@@ -176,7 +231,11 @@ export default function ManualEntryScreen({ navigation, route }) {
                 label="Carbohydrates (g)"
                 placeholder="60.0"
                 value={carbs}
-                onChangeText={setCarbs}
+                onChangeText={(text) => {
+                  setCarbs(text);
+                  clearFieldError('carbs');
+                }}
+                error={errors.carbs}
                 keyboardType="numeric"
               />
             </View>
@@ -185,7 +244,11 @@ export default function ManualEntryScreen({ navigation, route }) {
                 label="Total Sugar (g)"
                 placeholder="15.0"
                 value={sugar}
-                onChangeText={setSugar}
+                onChangeText={(text) => {
+                  setSugar(text);
+                  clearFieldError('sugar');
+                }}
+                error={errors.sugar}
                 keyboardType="numeric"
               />
             </View>
@@ -197,33 +260,63 @@ export default function ManualEntryScreen({ navigation, route }) {
                 label="Total Fat (g)"
                 placeholder="18.0"
                 value={fat}
-                onChangeText={setFat}
+                onChangeText={(text) => {
+                  setFat(text);
+                  clearFieldError('fat');
+                }}
+                error={errors.fat}
                 keyboardType="numeric"
               />
             </View>
             <View style={{ flex: 1 }}>
               <NeoInput
-                label="Fiber (g)"
-                placeholder="6.0"
-                value={fiber}
-                onChangeText={setFiber}
+                label="Saturated Fat (g)"
+                placeholder="2.5"
+                value={saturatedFat}
+                onChangeText={(text) => {
+                  setSaturatedFat(text);
+                  clearFieldError('saturatedFat');
+                }}
+                error={errors.saturatedFat}
                 keyboardType="numeric"
               />
             </View>
           </View>
 
-          <NeoInput
-            label="Salt / Sodium Equivalent (g)"
-            placeholder="0.4"
-            value={salt}
-            onChangeText={setSalt}
-            keyboardType="numeric"
-          />
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <NeoInput
+                label="Fiber (g)"
+                placeholder="6.0"
+                value={fiber}
+                onChangeText={(text) => {
+                  setFiber(text);
+                  clearFieldError('fiber');
+                }}
+                error={errors.fiber}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <NeoInput
+                label="Salt / Sodium (g)"
+                placeholder="0.4"
+                value={salt}
+                onChangeText={(text) => {
+                  setSalt(text);
+                  clearFieldError('salt');
+                }}
+                error={errors.salt}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
 
           <NeoButton
             title="Analyze Nutrition Facts →"
             onPress={onSubmit}
             loading={loading}
+            disabled={loading}
             variant="black"
             size="lg"
             style={{ marginTop: 8 }}
@@ -296,6 +389,24 @@ const styles = StyleSheet.create({
     color: PREMIUM_COLORS.secondary,
     marginTop: 4,
     lineHeight: 20,
+  },
+  apiErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PREMIUM_COLORS.status.avoidBg,
+    borderWidth: 1,
+    borderColor: PREMIUM_COLORS.status.avoidBorder,
+    borderRadius: PREMIUM_RADIUS.md,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  apiErrorText: {
+    flex: 1,
+    fontSize: 13,
+    color: PREMIUM_COLORS.status.avoid,
+    fontWeight: '600',
+    lineHeight: 18,
   },
   card: {
     backgroundColor: PREMIUM_COLORS.card,

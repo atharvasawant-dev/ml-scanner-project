@@ -23,6 +23,7 @@ export default function NeoInput({
         style={[
           styles.inputBox,
           isFocused ? styles.inputBoxFocused : null,
+          error ? styles.inputBoxError : null,
           style,
         ]}
       >
@@ -74,6 +75,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 6,
     elevation: 2,
+  },
+  inputBoxError: {
+    borderColor: PREMIUM_COLORS.status.avoid,
   },
   input: {
     flex: 1,
