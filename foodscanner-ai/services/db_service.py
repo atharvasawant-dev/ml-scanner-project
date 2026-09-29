@@ -168,13 +168,13 @@ def log_food_consumption(
 
 def get_recent_scans(db: Session, user_id: int, limit: int = 20) -> list[dict[str, Any]]:
     rows = db.execute(
-        select(ScanHistory.barcode, ScanHistory.result, ScanHistory.scan_time)
+        select(ScanHistory.id, ScanHistory.barcode, ScanHistory.result, ScanHistory.scan_time)
         .where(ScanHistory.user_id == int(user_id))
         .order_by(ScanHistory.scan_time.desc())
         .limit(int(limit))
     ).all()
 
-    return [{"barcode": r[0], "result": r[1], "scan_time": r[2]} for r in rows]
+    return [{"id": r[0], "barcode": r[1], "result": r[2], "scan_time": r[3]} for r in rows]
 
 
 def get_today_calories(db: Session, user_id: int) -> float:

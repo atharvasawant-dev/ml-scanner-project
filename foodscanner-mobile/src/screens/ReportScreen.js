@@ -22,6 +22,14 @@ function _ratingMeta(rating) {
   return { label: 'NEEDS ATTENTION', bg: PREMIUM_COLORS.status.avoidBg, fg: PREMIUM_COLORS.status.avoid, icon: 'alert-circle' };
 }
 
+function _formatGoalName(type) {
+  if (!type || typeof type !== 'string') return 'Dietary Goal';
+  return type
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 function PremiumReportBar({ label, consumed, limit, unit = 'g', iconName = 'leaf-outline' }) {
   const c = Number(consumed) || 0;
   const l = Number(limit) || 1;
@@ -247,26 +255,34 @@ export default function ReportScreen() {
           )}
         </View>
 
-        {/* 4. Goal Adherence */}
+        {/* 4. Goal Progress & Tracking */}
         {goal ? (
           <View style={[styles.card, PREMIUM_SHADOWS.sm]}>
-            <Text style={styles.cardTitle}>Calorie Goal Tracking</Text>
-            <Text style={styles.cardSub}>Adherence to daily budget and timeline target</Text>
+            <Text style={styles.cardTitle}>
+              {goal.goal_type ? `${_formatGoalName(goal.goal_type)} Tracking` : 'Goal Tracking'}
+            </Text>
+            <Text style={styles.cardSub}>
+              {goal.goal_summary || 'Dietary progress tracking and compliance'}
+            </Text>
 
-            <View style={styles.goalMetricsRow}>
-              <View style={styles.goalMetricBox}>
-                <Text style={styles.goalMetricNum}>{goal.target_days || 30}</Text>
-                <Text style={styles.goalMetricLabel}>Target Days</Text>
+            {goal.goal_type && goal.status !== 'NO_GOAL' ? (
+              <View style={styles.goalMetricsRow}>
+                <View style={styles.goalMetricBox}>
+                  <Text style={styles.goalMetricNum}>{goal.days_active != null ? goal.days_active : '—'}</Text>
+                  <Text style={styles.goalMetricLabel}>Days Active</Text>
+                </View>
+                <View style={styles.goalMetricBox}>
+                  <Text style={styles.goalMetricNum}>{goal.days_remaining != null ? goal.days_remaining : '—'}</Text>
+                  <Text style={styles.goalMetricLabel}>Days Left</Text>
+                </View>
+                <View style={styles.goalMetricBox}>
+                  <Text style={styles.goalMetricNum}>
+                    {goal.progress_score != null ? `${Math.round(goal.progress_score)}/100` : '—'}
+                  </Text>
+                  <Text style={styles.goalMetricLabel}>Progress Score</Text>
+                </View>
               </View>
-              <View style={styles.goalMetricBox}>
-                <Text style={styles.goalMetricNum}>{goal.days_adhered || 0}</Text>
-                <Text style={styles.goalMetricLabel}>Days Adhered</Text>
-              </View>
-              <View style={styles.goalMetricBox}>
-                <Text style={styles.goalMetricNum}>{goal.adherence_rate ? `${Math.round(goal.adherence_rate * 100)}%` : '0%'}</Text>
-                <Text style={styles.goalMetricLabel}>Success Rate</Text>
-              </View>
-            </View>
+            ) : null}
           </View>
         ) : null}
       </ScrollView>

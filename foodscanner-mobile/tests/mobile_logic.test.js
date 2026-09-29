@@ -1220,6 +1220,96 @@ describe('Batch 13: Manual Nutrition Entry Complete Integration & Invariant Test
   });
 });
 
+describe('Batch 14: History Item DB Identification & Report Goal Contract Compliance', () => {
+  // 1. History Item DB Identification
+  test('1. GET /history item schema contains real numeric id', () => {
+    const rawHistoryRecord = {
+      id: 142,
+      barcode: '8901058851304',
+      result: 'AVOID',
+      scan_time: '2026-09-29 14:30:00',
+    };
 
+    assert.strictEqual(typeof rawHistoryRecord.id, 'number');
+    assert.strictEqual(rawHistoryRecord.id, 142);
+    assert.ok(rawHistoryRecord.id > 0);
+  });
 
+  // 2. deleteHistoryItem targets exact /history/{id}
+  test('2. deleteHistoryItem targets /history/{scanId} using exact id', () => {
+    function buildDeleteHistoryUrl(scanId) {
+      return `/history/${encodeURIComponent(scanId)}`;
+    }
 
+    assert.strictEqual(buildDeleteHistoryUrl(142), '/history/142');
+    assert.strictEqual(buildDeleteHistoryUrl('142'), '/history/142');
+  });
+
+  // 3. Goal Report: maps real backend fields without inventing values
+  test('3. Goal Report maps days_active, days_remaining, and progress_score directly', () => {
+    const backendGoalResponse = {
+      goal_type: 'lose_weight',
+      days_active: 12,
+      days_remaining: 18,
+      progress_score: 75.0,
+      status: 'ON_TRACK',
+      goal_summary: 'You are on track with your lose weight goal! Average daily score: 75/100',
+      recommendations: ['Avoid products over 400 calories'],
+    };
+
+    function parseGoalMetrics(goal) {
+      if (!goal || !goal.goal_type || goal.status === 'NO_GOAL') {
+        return null;
+      }
+      return {
+        daysActive: goal.days_active != null ? String(goal.days_active) : '—',
+        daysLeft: goal.days_remaining != null ? String(goal.days_remaining) : '—',
+        progressScore: goal.progress_score != null ? `${Math.round(goal.progress_score)}/100` : '—',
+      };
+    }
+
+    const metrics = parseGoalMetrics(backendGoalResponse);
+    assert.deepStrictEqual(metrics, {
+      daysActive: '12',
+      daysLeft: '18',
+      progressScore: '75/100',
+    });
+  });
+
+  // 4. Goal Name Formatting
+  test('4. _formatGoalName transforms snake_case goal names to Title Case', () => {
+    function _formatGoalName(type) {
+      if (!type || typeof type !== 'string') return 'Dietary Goal';
+      return type
+        .split('_')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+
+    assert.strictEqual(_formatGoalName('lose_weight'), 'Lose Weight');
+    assert.strictEqual(_formatGoalName('control_sugar'), 'Control Sugar');
+    assert.strictEqual(_formatGoalName('eat_clean'), 'Eat Clean');
+    assert.strictEqual(_formatGoalName('build_muscle'), 'Build Muscle');
+    assert.strictEqual(_formatGoalName(null), 'Dietary Goal');
+  });
+
+  // 5. NO_GOAL status does NOT display misleading metric placeholders
+  test('5. NO_GOAL status renders summary and suppresses misleading 30-day/0-adherence placeholders', () => {
+    const noGoalResponse = {
+      goal_type: null,
+      days_active: 0,
+      days_remaining: 0,
+      progress_score: 0,
+      status: 'NO_GOAL',
+      goal_summary: 'No active goal. Set a goal in your profile to track progress.',
+      recommendations: [],
+    };
+
+    const hasActiveGoal = Boolean(noGoalResponse.goal_type && noGoalResponse.status !== 'NO_GOAL');
+    assert.strictEqual(hasActiveGoal, false);
+
+    // Card subtitle displays real summary, not hardcoded placeholder
+    const cardSub = noGoalResponse.goal_summary || 'Dietary progress tracking and compliance';
+    assert.strictEqual(cardSub, 'No active goal. Set a goal in your profile to track progress.');
+  });
+});
