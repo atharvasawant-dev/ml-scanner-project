@@ -17,6 +17,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security-scan:
+    name: Security Scan (Bandit & Pip-Audit)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: foodscanner-ai
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: foodscanner-ai/requirements.txt
+
+      - name: Install Security Scanners
+        run: |
+          python -m pip install --upgrade pip
+          pip install "bandit>=1.7.5" "pip-audit>=2.7.0"
+
+      - name: Run Bandit SAST Security Scan
+        run: |
+          bandit -r services/ api/ database/ ml_model/ scanner/ -ll -ii
+
+      - name: Run Pip-Audit Dependency Vulnerability Scan
+        run: |
+          pip-audit -s osv --timeout 30 --ignore-vuln PYSEC-2026-4298 --ignore-vuln PYSEC-2026-1325 -r requirements.txt -r requirements-deploy.txt
+
   backend-tests:
     name: Backend Tests (FastAPI / Pytest)
     runs-on: ubuntu-latest
@@ -36,13 +68,23 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     defaults:
       run:
         working-directory: foodscanner-ai
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install system dependencies (Tesseract OCR & Pyzbar)
         run: |
@@ -50,7 +92,7 @@ jobs:
           sudo apt-get install -y tesseract-ocr libzbar0
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
@@ -74,6 +116,7 @@ jobs:
           FOODSCANNER_OCR_ENGINE: "tesseract"
           TEST_DATABASE_URL: "postgresql://test_user:test_password@localhost:5432/test_foodscanner_db"
           TEST_POSTGRES_URL: "postgresql://test_user:test_password@localhost:5432/test_foodscanner_db"
+          # REDIS_URL intentionally omitted: standard pytest tests use/reset the in-memory limiter.
         run: |
           pytest tests/ -v
 
@@ -87,7 +130,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
@@ -122,11 +165,25 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate Docker Compose Configuration
         run: |
           docker compose config -q
+          docker compose --profile full config -q
+
+      - name: Validate NGINX Configurations
+        run: |
+          docker run --rm -v ${{ github.workspace }}/gateway/nginx.conf:/etc/nginx/nginx.conf:ro nginx:1.27-alpine nginx -t
+          docker run --rm -v ${{ github.workspace }}/foodscanner-mobile/nginx-web.conf:/etc/nginx/conf.d/default.conf:ro nginx:1.27-alpine nginx -t
+
+      - name: Build Gateway Docker Image
+        run: |
+          docker build -t pramaan-gateway:ci ./gateway
+
+      - name: Build Mobile Web Docker Image
+        run: |
+          docker build -t foodscanner-mobile:ci ./foodscanner-mobile
 
       - name: Build Backend Docker Image
         run: |
